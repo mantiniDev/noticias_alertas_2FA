@@ -2,7 +2,7 @@ name: Monitor de Notícias OSINT
 
 "on":
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 jobs:
@@ -24,4 +24,8 @@ jobs:
           pip install feedparser
 
       - name: Executar o script
+        env:
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
         run: python script.py
