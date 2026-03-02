@@ -85,11 +85,11 @@ TRIBUNAIS = [
 TERMOS_ESPECIFICOS = [
     '"2FA PJE"', '"MFA PJE"', '"dois fatores PJE"', '"duplo fator PJE"', 
     '"duplo fator EPROC"', '"duplo fator ESAJ"', '"duplo fator PROJUDI"', 
-    '"PDPJ"', '"novo sistema tribunal"', '"mudança sistema tribunal"', 
+    '"PDPJ"', '"sistema tribunal"', 
     '"migração sistema tribunal"', '"PJE indisponibilidade"', 
     '"portaria CNJ 140/2024"', '"tribunal pdpj"', '"tribunal authenticator"', 
-    '"2FA se tornou obrigatória"', '"golpe do advogado"', '"migração TJPR EPROC"', 
-    '"Jus.br"', '"instabilidade"', '"instabilidade pdpj"', '"instabilidade eproc"', 
+    '"2FA obrigatória"', '"golpe do advogado"', '"migração TJPR EPROC"', 
+    '"Jus.br"', '"instabilidade PJE"', '"instabilidade pdpj"', '"instabilidade eproc"', 
     '"instabilidade esaj"', '"instabilidade projudi"', '"instabilidade TRT"', 
     '"instabilidade dos principais tribunais EPROC"'
 ]
@@ -115,29 +115,52 @@ def buscar_noticias_semanais():
     data_limite = datetime.now() - timedelta(days=7)
 
     # =====================================================================
-    # PARTE 1: BUSCA CRUZADA (TRIBUNAIS + TERMOS GERAIS DE SISTEMA)
+    # PARTE 1: BUSCA CRUZADA OTIMIZADA (TRIBUNAIS + BLOCOS TEMÁTICOS)
     # =====================================================================
-    termos_sistemas = '("PJE" OR "EPROC" OR "PROJUDI" OR "autenticação" OR "certificado digital" OR "ciberataque")'
+    # Dividimos os seus termos em blocos para não estourar o limite do Google
+    # e evitamos palavras soltas (ex: apenas "acesso") para reduzir o ruído.
+    blocos_tematicos = [
+        # 1. Nomes dos Sistemas
+        '("PJE" OR "PDPJ" OR "EPROC" OR "ESAJ" OR "PROJUDI" OR "Jus.br" OR "sistema próprio")',
+        
+        # 2. Segurança e Autenticação
+        '("2FA" OR "MFA" OR "duplo fator" OR "dois fatores" OR "autenticação" OR "multifator" OR "authenticator" OR "código de autenticação" OR "Single Sign-On" OR "SSO" OR "segurança digital")',
+        
+        # 3. Infraestrutura e Chaves
+        '("captcha" OR "WAF" OR "token" OR "certificate" OR "certificado digital")',
+        
+        # 4. Status e Eventos de TI
+        '("novo sistema" OR "migração" OR "descontinuado" OR "deprecado" OR "descontinuar" OR "instabilidade PJE" OR "indisponibilidade" OR "ciberataque")',
+        
+        # 5. Acessos e Credenciais (Agrupados para dar contexto e evitar falsos positivos)
+        '("renovação de senha" OR "redefinição de senha" OR "credencial" OR "troca de senha" OR "código de acesso")',
+        
+        # 6. Legislação Específica
+        '("portaria nº 140/2024" OR "portaria CNJ nº 140" OR "resolução nº 335/2020" OR "resolução CNJ nº 335/2020")'
+    ]
+
     siglas = [tribunal["acronym"] for tribunal in TRIBUNAIS]
-    
-    # Lotes de 10 siglas por vez
     tamanho_lote_tribunais = 10
     lotes_siglas = [siglas[i:i + tamanho_lote_tribunais] for i in range(0, len(siglas), tamanho_lote_tribunais)]
     
-    print(f"Iniciando Fase 1: Busca cruzada de {len(siglas)} Tribunais divididos em {len(lotes_siglas)} lotes...")
+    print(f"Iniciando Fase 1: Cruzando {len(siglas)} Tribunais com {len(blocos_tematicos)} blocos temáticos de TI...")
+    
     for i, lote in enumerate(lotes_siglas, 1):
         query_tribunais = "(" + " OR ".join(f'"{sigla}"' for sigla in lote) + ")"
-        query_final = f"{termos_sistemas} AND {query_tribunais}"
-        query_codificada = urllib.parse.quote(query_final)
         
-        url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
-        extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
-        time.sleep(1.5) # Pausa de segurança levemente aumentada devido ao número de requisições
+        # Roda a busca dos tribunais contra CADA bloco temático separadamente
+        for bloco in blocos_tematicos:
+            query_final = f"{bloco} AND {query_tribunais}"
+            query_codificada = urllib.parse.quote(query_final)
+            
+            url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            time.sleep(1.5) # Pausa obrigatória para o Google não bloquear o script
 
     # =====================================================================
-    # PARTE 2: BUSCA PELAS FRASES ESPECÍFICAS
+    # PARTE 2: BUSCA PELAS FRASES ESPECÍFICAS EXATAS
     # =====================================================================
-    print("Iniciando Fase 2: Busca pelas frases e termos específicos...")
+    print("Iniciando Fase 2: Busca pelas frases e ocorrências específicas...")
     tamanho_lote_termos = 6
     lotes_termos = [TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos] for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)]
     
@@ -149,7 +172,7 @@ def buscar_noticias_semanais():
         extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
         time.sleep(1.5)
 
-    # Ordena o resultado final
+    # Ordena o resultado final cronologicamente (da mais recente para a mais antiga)
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)
     return todas_noticias
 
