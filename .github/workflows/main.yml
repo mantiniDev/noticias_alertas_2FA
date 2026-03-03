@@ -1,4 +1,4 @@
-name: Monitor de Notícias OSINT
+name: MANST - Monitoramento Automatizado de Notícias de Sistemas e Tribunais
 
 "on":
   schedule:
