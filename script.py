@@ -208,13 +208,13 @@ def gerar_corpos_email(noticias):
     uma_semana_atras = (datetime.now() - timedelta(days=7)).strftime("%d/%m/%Y")
     
     # 1. Versão Texto Puro
-    texto_puro = f"MAST - Monitoramento Automatizadode Sistemas e Tribunais ({uma_semana_atras} a {hoje})\n\n"
+    texto_puro = f"MAST - Monitoramento Automatizadode de Sistemas e Tribunais ({uma_semana_atras} a {hoje})\n\n"
     
     # 2. Versão HTML
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Notícias de Sistemas e Tribunais</h2>
+        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Sistemas e Tribunais</h2>
         <p>Período: <strong>{uma_semana_atras}</strong> até <strong>{hoje}</strong></p>
         <hr style="border: 1px solid #eee;">
     """
