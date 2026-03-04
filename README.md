@@ -50,7 +50,7 @@ name: Monitor de Notícias OSINT
 
 on:
   schedule:
-    - cron: '0 11 * * 1' # Executa toda segunda-feira às 9h00 (Horário de Brasília)
+    - cron: '0 11 * * *' # Executa todo dia às 9h00 (Horário de Brasília)
   workflow_dispatch: 
 
 jobs:
