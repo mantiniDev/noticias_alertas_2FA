@@ -213,7 +213,7 @@ def gerar_corpos_email(noticias):
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Ssitemas e Tribunais (MAST)</h2>
+        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Sistemas e Tribunais (MAST)</h2>
         <p>Período: <strong>{uma_semana_atras}</strong> até <strong>{hoje}</strong></p>
         <hr style="border: 1px solid #eee;">
     """
