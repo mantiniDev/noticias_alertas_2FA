@@ -92,10 +92,11 @@ TERMOS_ESPECIFICOS = [
     '"2FA PJE"', '"MFA PJE"', '"dois fatores PJE"', '"duplo fator PJE"', 
     '"duplo fator EPROC"', '"duplo fator ESAJ"', '"duplo fator PROJUDI"', 
     '"PDPJ"', '"novo sistema tribunal"', '"mudança sistema tribunal"', 
-    '"migração sistema tribunal"', '"pje indisponibilidade"', '" pdpj indisponibilidade"', '"eproc indisponibilidade"', '"esaj indisponibilidade"',
+    '"migração sistema tribunal"', '"pje indisponibilidade"', '"pdpj indisponibilidade"', 
+    '"eproc indisponibilidade"', '"esaj indisponibilidade"',
     '"portaria CNJ 140/2024"', '"tribunal pdpj"', '"tribunal authenticator"', 
     '"2FA se tornou obrigatória"', '"golpe do advogado"', '"migração TJPR EPROC"', 
-    '"Jus.br"', '"instabilidade pje "', '"instabilidade pdpj"', '"instabilidade eproc"', 
+    '"Jus.br"', '"instabilidade pje"', '"instabilidade pdpj"', '"instabilidade eproc"', 
     '"instabilidade esaj"', '"instabilidade projudi"', '"instabilidade TRT"', 
     '"instabilidade dos principais tribunais EPROC"'
 ]
@@ -106,11 +107,12 @@ TERMOS_ESPECIFICOS = [
 
 TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", "jus.br", 
-    "2fa", "2FA", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
+    "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
     "sso", "single sign-on", "captcha", "waf", "token", "ciberataque", 
-    "instabilidade", "indisponibilidade tribunais", "golpe do advogado",
+    "instabilidade", "indisponibilidade", "golpe do advogado",
     "portaria nº 140", "resolução nº 335", "certificado digital",
-    "novo sistema", "migração", "descontinuado", "sistema próprio"
+    "novo sistema", "migração", "descontinuado", "sistema próprio",
+    "ransomware", "ataque hacker", "manutenção programada", "fora do ar"
 ]
 
 TERMOS_COMPOSTOS = [
@@ -203,18 +205,15 @@ def buscar_noticias_semanais():
 # ==============================================================================
 
 def gerar_corpos_email(noticias):
-    """Gera duas versões do e-mail: Texto Puro (fallback) e HTML (bonito)."""
     hoje = datetime.now().strftime("%d/%m/%Y")
     uma_semana_atras = (datetime.now() - timedelta(days=7)).strftime("%d/%m/%Y")
     
-    # 1. Versão Texto Puro
-    texto_puro = f"MAST - Monitoramento Automatizadode de Sistemas e Tribunais ({uma_semana_atras} a {hoje})\n\n"
+    texto_puro = f"MAST - Monitoramento Automatizado de Sistemas e Tribunais ({uma_semana_atras} a {hoje})\n\n"
     
-    # 2. Versão HTML
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
-        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Sistemas e Tribunais</h2>
+        <h2 style="color: #2c3e50;">Monitoramento Automatizado de Ssitemas e Tribunais (MAST)</h2>
         <p>Período: <strong>{uma_semana_atras}</strong> até <strong>{hoje}</strong></p>
         <hr style="border: 1px solid #eee;">
     """
@@ -227,19 +226,30 @@ def gerar_corpos_email(noticias):
         html += "<ul style='list-style-type: none; padding: 0;'>"
         for i, noticia in enumerate(noticias, 1):
             data_formatada = noticia['data_obj'].strftime("%d/%m/%Y às %H:%M")
+            titulo_lower = noticia['titulo'].lower()
             
-            # Adiciona ao Texto Puro
-            texto_puro += f"{i}. {noticia['titulo']}\n   Data: {data_formatada}\n   Link: {noticia['link']}\n\n"
+            # 1. Procura de qual tribunal é essa notícia para pegar a URL oficial
+            link_oficial_html = ""
+            link_oficial_texto = ""
+            for tribunal in TRIBUNAIS:
+                if tribunal['acronym'].lower() in titulo_lower:
+                    link_oficial_html = f"<br><a href='{tribunal['url']}' style='display: inline-block; margin-top: 8px; padding: 5px 10px; background-color: #e8f4f8; color: #2980b9; text-decoration: none; border-radius: 4px; font-size: 0.85em;'>🔍 Checar Status Oficial do {tribunal['acronym']}</a>"
+                    link_oficial_texto = f"\n   Status Oficial: {tribunal['url']}"
+                    break # Para de procurar assim que achar o primeiro
             
-            # Adiciona ao HTML
+            # 2. Adiciona ao Texto Puro
+            texto_puro += f"{i}. {noticia['titulo']}\n   Data: {data_formatada}\n   Link da Notícia: {noticia['link']}{link_oficial_texto}\n\n"
+            
+            # 3. Adiciona ao HTML
             html += f"""
             <li style="margin-bottom: 20px; padding: 15px; border-left: 4px solid #3498db; background-color: #f9f9f9;">
                 <h3 style="margin: 0 0 10px 0;">
-                    <a href="{noticia['link']}" style="color: #2980b9; text-decoration: none;">{noticia['titulo']}</a>
+                    <a href="{noticia['link']}" style="color: #2c3e50; text-decoration: none;">{noticia['titulo']}</a>
                 </h3>
                 <p style="margin: 0; font-size: 0.9em; color: #7f8c8d;">
                     📅 {data_formatada} &nbsp;|&nbsp; 📰 Fonte: {noticia['fonte']}
                 </p>
+                {link_oficial_html}
             </li>
             """
         html += "</ul>"
