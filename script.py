@@ -109,7 +109,7 @@ TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", "jus.br", 
     "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
     "sso", "single sign-on", "captcha", "waf", "token", "ciberataque", 
-    "instabilidade", "indisponibilidade", "golpe do advogado",
+    "instabilidade", "indisponibilidade nos tribunais", "golpe do advogado",
     "portaria nº 140", "resolução nº 335", "certificado digital",
     "novo sistema", "migração", "descontinuado", "sistema próprio",
     "ransomware", "ataque hacker", "manutenção programada", "fora do ar"
