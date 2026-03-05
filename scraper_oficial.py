@@ -16,125 +16,99 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 # ==============================================================================
 
 FONTES_OFICIAIS = [
-    # --- Sistemas e CNJ ---
+    # --- 1. SISTEMAS E CNJ ---
     {"nome": "Telegram - PJe News", "url": "https://t.me/s/pjenews", "tipo": "Telegram"},
     {"nome": "PJe Legacy - Notas da Versão", "url": "https://docs.pje.jus.br/servicos-negociais/servico-pje-legacy/notas-da-versao", "tipo": "Web"},
     {"nome": "CNJ - Notícias PDPJ-Br", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/plataforma-digital-do-poder-judiciario-brasileiro-pdpj-br/noticias/", "tipo": "Web"},
     {"nome": "CNJ - Notícias Justiça 4.0", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/noticias/", "tipo": "Web"},
     {"nome": "CNJ - Atos Normativos", "url": "https://www.cnj.jus.br/atos_normativos/", "tipo": "Web"},
+    {"nome": "CNJ - Relatórios de Indisponibilidade", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/relatorios-de-indisponibilidade/", "tipo": "Web"},
 
-    # --- Tribunais Superiores e Conselhos ---
+    # --- 2. TRIBUNAIS SUPERIORES E CONSELHOS ---
     {"nome": "STF - Notícias", "url": "https://noticias.stf.jus.br/", "tipo": "Web"},
+    {"nome": "STF - Indisponibilidade", "url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=indispAplicacoes&pagina=principal", "tipo": "Web"},
     {"nome": "STJ - Últimas Notícias", "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias", "tipo": "Web"},
+    {"nome": "STJ - Indisponibilidade", "url": "https://ri.web.stj.jus.br/registro-de-indisponibilidades/", "tipo": "Web"},
     {"nome": "TST - Notícias", "url": "https://www.tst.jus.br/noticias", "tipo": "Web"},
     {"nome": "CSJT - Normativos", "url": "https://www.csjt.jus.br/web/csjt/normativos", "tipo": "Web"},
-    {"nome": "CSJT - Legislação e Atos", "url": "https://www.csjt.jus.br/web/csjt/legislacao-atos", "tipo": "Web"},
+    {"nome": "TSE - Situação Atual dos Sistemas", "url": "https://www.tse.jus.br/servicos-judiciais/processos/processo-judicial-eletronico/situacao-atual-dos-servicos-digitais-do-tse", "tipo": "Web"},
 
-    # --- Tribunais de Justiça Estaduais (TJs) ---
-    {"nome": "TJSP - Notícias eproc", "url": "https://www.tjsp.jus.br/eproc/Noticias", "tipo": "Web"},
-    {"nome": "TJSP - Notícias Gerais", "url": "https://www.tjsp.jus.br/Noticias", "tipo": "Web"},
-    {"nome": "TJSP - Comunicados (Precatórios)", "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85", "tipo": "Web"},
-    {"nome": "TJMG - Notícias", "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/", "tipo": "Web"},
-    {"nome": "TJMG - Atos Normativos", "url": "https://www.tjmg.jus.br/portal-tjmg/atos-normativos/", "tipo": "Web"},
-    {"nome": "TJRJ - Notícias", "url": "https://www.tjrj.jus.br/web/guest/noticias", "tipo": "Web"},
-    {"nome": "TJPR - Notícias", "url": "https://www.tjpr.jus.br/noticias", "tipo": "Web"},
-    {"nome": "TJPR - Legislação e Atos Normativos", "url": "https://www.tjpr.jus.br/legislacao-atos-normativos", "tipo": "Web"},
-    {"nome": "TJRS - Notícias", "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/", "tipo": "Web"},
-    {"nome": "TJRS - Publicações Administrativas", "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/", "tipo": "Web"},
-    {"nome": "TJBA - Agência de Notícias", "url": "https://www.tjba.jus.br/portal/agencia-de-noticias/", "tipo": "Web"},
-
-    # --- Tribunais Regionais Federais (TRFs) ---
+    # --- 3. TRIBUNAIS REGIONAIS FEDERAIS (TRFs) ---
     {"nome": "TRF1 - Notícias", "url": "https://www.trf1.jus.br/trf1/noticias/", "tipo": "Web"},
-    {"nome": "TRF2 - Portal Notícias", "url": "https://www.trf2.jus.br/", "tipo": "Web"},
+    {"nome": "TRF1 - Indisponibilidade", "url": "https://app.trf1.jus.br/indisponibilidades-relatorio/", "tipo": "Web"},
+    {"nome": "TRF2 - Comunicação e Indisponibilidade", "url": "https://www.trf2.jus.br/trf2/comunicacao", "tipo": "Web"},
     {"nome": "TRF3 - Últimas Notícias", "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias", "tipo": "Web"},
+    {"nome": "TRF3 - Status dos Sistemas", "url": "https://status.trf3.jus.br/", "tipo": "Web"},
     {"nome": "TRF4 - Notícias Portal", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=noticia_portal", "tipo": "Web"},
-    {"nome": "TRF4 - Atos Normativos", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=ato_normativo_pesquisar", "tipo": "Web"},
+    {"nome": "TRF4 - Indisponibilidade", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=aviso_listar", "tipo": "Web"},
     {"nome": "TRF5 - Notícias", "url": "https://www.trf5.jus.br/index.php/noticias", "tipo": "Web"},
-    {"nome": "TRF6 - Notícias", "url": "https://portal.trf6.jus.br/noticias/", "tipo": "Web"},
-    {"nome": "TRF6 - Atos Normativos", "url": "https://portal.trf6.jus.br/atos-normativos/", "tipo": "Web"},
+    {"nome": "TRF5 - Indisponibilidade", "url": "https://pje.trf5.jus.br/pje/IndisponibilidadeSistema/listView.seam?&Itemid=530", "tipo": "Web"},
+    {"nome": "TRF6 - Notícias e Avisos", "url": "https://portal.trf6.jus.br/noticias/", "tipo": "Web"},
 
-    # --- Tribunais Regionais do Trabalho (TRTs) ---
-    {"nome": "TRT1 - Últimas Notícias", "url": "https://www.trt1.jus.br/ultimas-noticias", "tipo": "Web"},
-    {"nome": "TRT1 - Biblioteca Digital (Atos)", "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6", "tipo": "Web"},
-    {"nome": "TRT2 - Notícias", "url": "https://ww2.trt2.jus.br/noticias/noticias", "tipo": "Web"},
-    {"nome": "TRT3 - Notícias Institucionais", "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais", "tipo": "Web"},
-    {"nome": "TRT4 - Notícias", "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0", "tipo": "Web"},
-    {"nome": "TRT15 - Notícias", "url": "https://trt15.jus.br/noticias/maisnoticias", "tipo": "Web"},
+    # --- 4. TRIBUNAIS DE JUSTIÇA ESTADUAIS (TJs) ---
+    {"nome": "TJSP - Notícias eproc", "url": "https://www.tjsp.jus.br/eproc/Noticias", "tipo": "Web"},
+    {"nome": "TJSP - Indisponibilidade", "url": "https://www.tjsp.jus.br/Indisponibilidade/Comunicados", "tipo": "Web"},
+    {"nome": "TJMG - Notícias", "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/", "tipo": "Web"},
+    {"nome": "TJMG - Indisponibilidade", "url": "https://www.tjmg.jus.br/pje/certidao-de-indisponibilidade/", "tipo": "Web"},
+    {"nome": "TJRJ - Notícias", "url": "https://www.tjrj.jus.br/web/guest/noticias", "tipo": "Web"},
+    {"nome": "TJRJ - Indisponibilidade", "url": "https://www3.tjrj.jus.br/portalservicos/#/modindpub-principal", "tipo": "Web"},
+    {"nome": "TJPR - Notícias", "url": "https://www.tjpr.jus.br/noticias", "tipo": "Web"},
+    {"nome": "TJPR - Indisponibilidade", "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367#5924367", "tipo": "Web"},
+    {"nome": "TJRS - Notícias", "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/", "tipo": "Web"},
+    {"nome": "TJRS - Indisponibilidade", "url": "https://www.tjrs.jus.br/novo/processos-e-servicos/consultas-processuais/certidoes-indisponibilidade/", "tipo": "Web"},
+    {"nome": "TJBA - Notícias e Indisponibilidade", "url": "https://www.tjba.jus.br/portal/aviso-indisponibilidade/", "tipo": "Web"},
     
-    # --- TRIBUNAIS SUPERIORES E FEDERAIS ---
-    {"nome": "STF - Supremo Tribunal Federal", "url": "https://portal.stf.jus.br/textos/verTexto.asp?servico=indispAplicacoes&pagina=principal", "tipo": "Web"},
-    {"nome": "STJ - Superior Tribunal de Justiça", "url": "https://ri.web.stj.jus.br/registro-de-indisponibilidades/", "tipo": "Web"},
-    {"nome": "CNJ - Conselho Nacional de Justiça", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/relatorios-de-indisponibilidade/", "tipo": "Web"},
-    {"nome": "TRF1 - Tribunal Regional Federal da 1ª Região", "url": "https://app.trf1.jus.br/indisponibilidades-relatorio/", "tipo": "Web"},
-    {"nome": "TRF2 - Tribunal Regional Federal da 2ª Região", "url": "https://www.trf2.jus.br/trf2/comunicacao", "tipo": "Web"},
-    {"nome": "TRF3 - Tribunal Regional Federal da 3ª Região", "url": "https://status.trf3.jus.br/", "tipo": "Web"},
-    {"nome": "TRF4 - Tribunal Regional Federal da 4ª Região", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=aviso_listar", "tipo": "Web"},
-    {"nome": "TRF5 - Tribunal Regional Federal da 5ª Região", "url": "https://pje.trf5.jus.br/pje/IndisponibilidadeSistema/listView.seam?&Itemid=530", "tipo": "Web"},
-    {"nome": "TRF6 - Tribunal Regional Federal da 6ª Região", "url": "https://portal.trf6.jus.br/avisos/", "tipo": "Web"},
+    # Outros TJs - Indisponibilidade
+    {"nome": "TJAC - Indisponibilidade 1G", "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-1grau", "tipo": "Web"},
+    {"nome": "TJAL - Indisponibilidades", "url": "https://www.tjal.jus.br/indisponibilidades", "tipo": "Web"},
+    {"nome": "TJAP - Ocorrências Sistemas", "url": "https://sig.tjap.jus.br/deintel_grid_vw_ocorrencias_ext/deintel_grid_vw_ocorrencias_ext.php", "tipo": "Web"},
+    {"nome": "TJAM - Certidões de Indisponibilidade", "url": "https://www.tjam.jus.br/index.php/certidoes-de-indisponibilidade", "tipo": "Web"},
+    {"nome": "TJCE - Histórico e-SAJ", "url": "https://www.tjce.jus.br/historico-de-indisponibilidade-portal-e-saj/", "tipo": "Web"},
+    {"nome": "TJDFT - PJe Indisponibilidade", "url": "https://pje-indisponibilidade.tjdft.jus.br/", "tipo": "Web"},
+    {"nome": "TJES - Consulta Indisponibilidade", "url": "https://www.tjes.jus.br/pje/consulta-indisponibilidade/", "tipo": "Web"},
+    {"nome": "TJGO - Notícias CCSE", "url": "https://www.tjgo.jus.br/index.php/agencia-de-noticias/noticias-ccse", "tipo": "Web"},
+    {"nome": "TJMA - Atos e Avisos", "url": "https://www.tjma.jus.br/atos/tj/geral/0/120/o", "tipo": "Web"},
+    {"nome": "TJMT - Notícias", "url": "https://www.tjmt.jus.br/noticias", "tipo": "Web"},
+    {"nome": "TJMS - Monitoramento e-SAJ", "url": "https://www5.tjms.jus.br/monitoramentoEsaj/", "tipo": "Web"},
+    {"nome": "TJPA - Documentos Oficiais", "url": "https://www.tjpa.jus.br/PortalExterno/indexBibliotecaDigital.xhtml#resultados=&categoria=353&biblioteca=Documentos+Oficiais", "tipo": "Web"},
+    {"nome": "TJPB - Indisponibilidade PJe", "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-1o-grau", "tipo": "Web"},
+    {"nome": "TJPE - Indisponibilidade PJe", "url": "https://www.tjpe.jus.br/pje/indisponibilidade-do-pje", "tipo": "Web"},
+    {"nome": "TJPI - Indisponibilidade do Sistema", "url": "https://www.tjpi.jus.br/portaltjpi/pje/indisponibilidade-do-sistema/", "tipo": "Web"},
+    {"nome": "TJRN - Notícias", "url": "https://www.tjrn.jus.br/noticias/", "tipo": "Web"},
+    {"nome": "TJRO - Eventos SCI", "url": "https://www.tjro.jus.br/sci/evento", "tipo": "Web"},
+    {"nome": "TJRR - Indisponibilidades Projudi", "url": "https://projudi.tjrr.jus.br/projudi/indisponibilidades.jsp", "tipo": "Web"},
+    {"nome": "TJSC - Indisponibilidade eproc", "url": "https://eproc1g.tjsc.jus.br/eproc/externo_controlador.php?acao=processo_disponibilidade_listagem", "tipo": "Web"},
+    {"nome": "TJSE - Indisponibilidade de Sistemas", "url": "https://www.tjse.jus.br/portal/consultas/novo-cpc/indisponibilidade-de-sistemas", "tipo": "Web"},
+    {"nome": "TJTO - Notícias", "url": "https://www.tjto.jus.br/comunicacao/noticias", "tipo": "Web"},
 
-    # --- TRIBUNAIS DE JUSTIÇA ESTADUAIS (27 TJs) ---
-    {"nome": "TJAC - Tribunal de Justiça do Acre 1g", "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-1grau", "tipo": "Web"},
-    {"nome": "TJAL - Tribunal de Justiça de Acre 2G", "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-2grau", "tipo": "Web"},
-    {"nome": "TJAL - Tribunal de Justiça de Alagoas", "url": "https://www.tjal.jus.br/indisponibilidades", "tipo": "Web"},
-    {"nome": "TJAP - Tribunal de Justiça do Amapá", "url": "https://sig.tjap.jus.br/deintel_grid_vw_ocorrencias_ext/deintel_grid_vw_ocorrencias_ext.php", "tipo": "Web"},
-    {"nome": "TJAM - Tribunal de Justiça do Amazonas", "url": "https://www.tjam.jus.br/index.php/certidoes-de-indisponibilidade", "tipo": "Web"},
-    {"nome": "TJBA - Tribunal de Justiça da Bahia", "url": "https://www.tjba.jus.br/portal/aviso-indisponibilidade/", "tipo": "Web"},
-    {"nome": "TJCE - Tribunal de Justiça do Ceará", "url": "https://www.tjce.jus.br/historico-de-indisponibilidade-portal-e-saj/", "tipo": "Web"},
-    {"nome": "TJDFT - Tribunal de Justiça do Distrito Federal e Territórios", "url": "https://pje-indisponibilidade.tjdft.jus.br/", "tipo": "Web"},
-    {"nome": "TJES - Tribunal de Justiça do Espírito Santo", "url": "https://www.tjes.jus.br/pje/consulta-indisponibilidade/", "tipo": "Web"},
-    {"nome": "TJGO - Tribunal de Justiça de Goiás", "url": "https://www.tjgo.jus.br/index.php/agencia-de-noticias/noticias-ccse", "tipo": "Web"},
-    {"nome": "TJMA - Tribunal de Justiça do Maranhão", "url": "https://www.tjma.jus.br/atos/tj/geral/0/120/o", "tipo": "Web"},
-    {"nome": "TJMT - Tribunal de Justiça do Mato Grosso", "url": "https://www.tjmt.jus.br/noticias", "tipo": "Web"},
-    {"nome": "TJMS - Tribunal de Justiça do Mato Grosso do Sul", "url": "https://www5.tjms.jus.br/monitoramentoEsaj/", "tipo": "Web"},
-    {"nome": "TJMG - Tribunal de Justiça de Minas Gerais", "url": "https://www.tjmg.jus.br/pje/certidao-de-indisponibilidade/", "tipo": "Web"},
-    {"nome": "TJMG - Tribunal de Justiça de Minas GErais (Atos)", "url": "https://www.tjmg.jus.br/pje/atos-normativos/", "tipo": "Web"},
-    {"nome": "TJPA - Tribunal de Justiça do Pará", "url": "https://www.tjpa.jus.br/PortalExterno/indexBibliotecaDigital.xhtml#resultados=&categoria=353&biblioteca=Documentos+Oficiais", "tipo": "Web"},
-    {"nome": "TJPB - Tribunal de Justiça da Paraíba 1G", "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-1o-grau", "tipo": "Web"},
-    {"nome": "TJPR - Tribunal de Justiça do Paraíba 2G", "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-2o-grau-e-turmas-recursais", "tipo": "Web"},
-    {"nome": "TJPR - Tribunal de Justiça do Paraná", "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367#5924367", "tipo": "Web"},
-    {"nome": "TJPE - Tribunal de Justiça de Pernambuco", "url": "https://www.tjpe.jus.br/pje/indisponibilidade-do-pje", "tipo": "Web"},
-    {"nome": "TJPI - Tribunal de Justiça do Piauí", "url": "https://www.tjpi.jus.br/portaltjpi/pje/indisponibilidade-do-sistema/", "tipo": "Web"},
-    {"nome": "TJRJ - Tribunal de Justiça do Rio de Janeiro", "url": "https://www3.tjrj.jus.br/portalservicos/#/modindpub-principal", "tipo": "Web"},
-    {"nome": "TJRN - Tribunal de Justiça do Rio Grande do Norte", "url": "https://www.tjrn.jus.br/noticias/", "tipo": "Web"},
-    {"nome": "TJRS - Tribunal de Justiça do Rio Grande do Sul", "url": "https://www.tjrs.jus.br/novo/processos-e-servicos/consultas-processuais/certidoes-indisponibilidade/", "tipo": "Web"},
-    {"nome": "TJRO - Tribunal de Justiça de Rondônia", "url": "https://www.tjro.jus.br/sci/evento", "tipo": "Web"},
-    {"nome": "TJRR - Tribunal de Justiça de Roraima", "url": "https://projudi.tjrr.jus.br/projudi/indisponibilidades.jsp", "tipo": "Web"},
-    {"nome": "TJSC - Tribunal de Justiça de Santa Catarina", "url": "https://eproc1g.tjsc.jus.br/eproc/externo_controlador.php?acao=processo_disponibilidade_listagem", "tipo": "Web"},
-    {"nome": "TJSP - Tribunal de Justiça de São Paulo", "url": "https://www.tjsp.jus.br/Indisponibilidade/Comunicados", "tipo": "Web"},
-    {"nome": "TJSE - Tribunal de Justiça de Sergipe", "url": "https://www.tjse.jus.br/portal/consultas/novo-cpc/indisponibilidade-de-sistemas", "tipo": "Web"},
-    {"nome": "TJTO - Tribunal de Justiça do Tocantins", "url": "https://www.tjto.jus.br/comunicacao/noticias", "tipo": "Web"},
+    # --- 5. TRIBUNAIS REGIONAIS DO TRABALHO (TRTs) ---
+    {"nome": "TRT1 - Últimas Notícias e Indisponibilidade", "url": "https://trt1.jus.br/certidao-de-indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT2 - Indisponibilidade", "url": "https://aplicacoes8.trt2.jus.br/sis/indisponibilidade/consulta", "tipo": "Web"},
+    {"nome": "TRT3 - Indisponibilidade", "url": "https://cinde.trt3.jus.br/cinde/certidao/listagem.htm?dswid=-6858", "tipo": "Web"},
+    {"nome": "TRT4 - PJe Indisponibilidade", "url": "https://www.trt4.jus.br/portais/trt4/pje-indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT5 - PJe Indisponibilidades", "url": "https://portalpje.trt5.jus.br/pje-indisponibilidades", "tipo": "Web"},
+    {"nome": "TRT6 - Notícias", "url": "https://www.trt6.jus.br/portal/noticias", "tipo": "Web"},
+    {"nome": "TRT7 - Indisponibilidades PJe", "url": "https://www.trt7.jus.br/index.php/blog/200-servicos/227-pje/7512-indisponibilidades-do-pje?start=1", "tipo": "Web"},
+    {"nome": "TRT8 - Indisponibilidade do Sistema", "url": "https://www.trt8.jus.br/pje/indisponibilidade-do-sistema", "tipo": "Web"},
+    {"nome": "TRT9 - Destaques", "url": "https://www.trt9.jus.br/portal/destaques.xhtml", "tipo": "Web"},
+    {"nome": "TRT10 - Indisponibilidade PJe", "url": "https://www.trt10.jus.br/servicos/?pagina=pje/indisponibilidade/index.php", "tipo": "Web"},
+    {"nome": "TRT11 - Períodos de Indisponibilidade", "url": "https://portal.trt11.jus.br/index.php/advogados/pagina-pje/33-pje/365-periodos-de-indisponibilidade-do-pje-jt", "tipo": "Web"},
+    {"nome": "TRT12 - Uso e Indisponibilidade PJe", "url": "https://portal.trt12.jus.br/pje/uso_indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT13 - Relatório de Indisponibilidade", "url": "https://www.trt13.jus.br/pje/relatorio-de-indisponibilidade-do-pje", "tipo": "Web"},
+    {"nome": "TRT14 - Indisponibilidade PJe", "url": "https://portal.trt14.jus.br/portal/pje/indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT15 - Indisponibilidade PJe", "url": "https://trt15.jus.br/pje/indisponibilidade-pje", "tipo": "Web"},
+    {"nome": "TRT16 - Calendário de Indisponibilidade", "url": "https://www.trt16.jus.br/servicos/outros-servicos/calendario-indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT17 - Indisponibilidade Sistema PJe", "url": "https://www.trt17.jus.br/web/servicos/w/indiponibilidade-sistema-pje", "tipo": "Web"},
+    {"nome": "TRT18 - Indisponibilidades do PJe", "url": "https://www.trt18.jus.br/portal/servicos/pje/indisponibilidades-do-pje/", "tipo": "Web"},
+    {"nome": "TRT19 - Períodos de Indisponibilidades", "url": "https://site.trt19.jus.br/pjePeridosIndisponibilidades", "tipo": "Web"},
+    {"nome": "TRT20 - Indisponibilidade", "url": "https://www.trt20.jus.br/pje/indisponibilidade", "tipo": "Web"},
+    {"nome": "TRT21 - Indisponibilidade do Sistema", "url": "https://www.trt21.jus.br/servicos/pje/indisponibilidade-sistema", "tipo": "Web"},
+    {"nome": "TRT23 - Calendário de Indisponibilidade", "url": "https://portal.trt23.jus.br/portal/calendario-de-indisponibilidade-do-pje", "tipo": "Web"},
+    {"nome": "TRT24 - Indisponibilidade do PJe", "url": "https://www.trt24.jus.br/indisponibilidade-do-pje", "tipo": "Web"},
 
-    # --- TRIBUNAIS REGIONAIS DO TRABALHO (24 TRTs) ---
-    {"nome": "TRT1 - TRT 1ª Região (RJ)", "url": "https://trt1.jus.br/certidao-de-indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT2 - TRT 2ª Região (SP)", "url": "https://aplicacoes8.trt2.jus.br/sis/indisponibilidade/consulta", "tipo": "Web"},
-    {"nome": "TRT3 - TRT 3ª Região (MG)", "url": "https://cinde.trt3.jus.br/cinde/certidao/listagem.htm?dswid=-6858", "tipo": "Web"},
-    {"nome": "TRT4 - TRT 4ª Região (RS)", "url": "https://www.trt4.jus.br/portais/trt4/pje-indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT5 - TRT 5ª Região (BA)", "url": "https://portalpje.trt5.jus.br/pje-indisponibilidades", "tipo": "Web"},
-    {"nome": "TRT6 - TRT 6ª Região (PE)", "url": "https://www.trt6.jus.br/portal/noticias", "tipo": "Web"},
-    {"nome": "TRT7 - TRT 7ª Região (CE)", "url": "https://www.trt7.jus.br/index.php/blog/200-servicos/227-pje/7512-indisponibilidades-do-pje?start=1", "tipo": "Web"},
-    {"nome": "TRT8 - TRT 8ª Região (PA/AP)", "url": "https://www.trt8.jus.br/pje/indisponibilidade-do-sistema", "tipo": "Web"},
-    {"nome": "TRT9 - TRT 9ª Região (PR)", "url": "https://www.trt9.jus.br/portal/destaques.xhtml", "tipo": "Web"},
-    {"nome": "TRT10 - TRT 10ª Região (DF/TO)", "url": "https://www.trt10.jus.br/servicos/?pagina=pje/indisponibilidade/index.php", "tipo": "Web"},
-    {"nome": "TRT11 - TRT 11ª Região (AM/RR)", "url": "https://portal.trt11.jus.br/index.php/advogados/pagina-pje/33-pje/365-periodos-de-indisponibilidade-do-pje-jt", "tipo": "Web"},
-    {"nome": "TRT12 - TRT 12ª Região (SC)", "url": "https://portal.trt12.jus.br/pje/uso_indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT13 - TRT 13ª Região (PB)", "url": "https://www.trt13.jus.br/pje/relatorio-de-indisponibilidade-do-pje", "tipo": "Web"},
-    {"nome": "TRT14 - TRT 14ª Região (RO/AC)", "url": "https://portal.trt14.jus.br/portal/pje/indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT15 - TRT 15ª Região (Campinas)", "url": "https://trt15.jus.br/pje/indisponibilidade-pje", "tipo": "Web"},
-    {"nome": "TRT16 - TRT 16ª Região (MA)", "url": "https://www.trt16.jus.br/servicos/outros-servicos/calendario-indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT17 - TRT 17ª Região (ES)", "url": "https://www.trt17.jus.br/web/servicos/w/indiponibilidade-sistema-pje", "tipo": "Web"},
-    {"nome": "TRT18 - TRT 18ª Região (GO)", "url": "https://www.trt18.jus.br/portal/servicos/pje/indisponibilidades-do-pje/", "tipo": "Web"},
-    {"nome": "TRT19 - TRT 19ª Região (AL)", "url": "https://site.trt19.jus.br/pjePeridosIndisponibilidades", "tipo": "Web"},
-    {"nome": "TRT20 - TRT 20ª Região (SE)", "url": "https://www.trt20.jus.br/pje/indisponibilidade", "tipo": "Web"},
-    {"nome": "TRT21 - TRT 21ª Região (RN)", "url": "https://www.trt21.jus.br/servicos/pje/indisponibilidade-sistema", "tipo": "Web"},
-    {"nome": "TRT22 - TRT 22ª Região (PI)", "url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1ihmu1f1FyY-MGX2fo5ikUpRwf2QVq7KSZSANyf-r0deXMtoMM2L-pw_kFR6nFXXrdd4mdrFNKJ3F/pubhtml?gid=0&single=true", "tipo": "Web"},
-    {"nome": "TRT23 - TRT 23ª Região (MT)", "url": "https://portal.trt23.jus.br/portal/calendario-de-indisponibilidade-do-pje", "tipo": "Web"},
-    {"nome": "TRT24 - TRT 24ª Região (MS)", "url": "https://www.trt24.jus.br/indisponibilidade-do-pje", "tipo": "Web"},
-
-    # --- TRIBUNAIS REGIONAIS ELEITORAIS (TREs selecionados) ---
-    {"nome": "TSE - TSE (Nacional)", "url": "https://www.tse.jus.br/servicos-judiciais/processos/processo-judicial-eletronico/situacao-atual-dos-servicos-digitais-do-tse", "tipo": "Web"},
-    {"nome": "TRE-SP - TRE São Paulo", "url": "https://www.tre-sp.jus.br/servicos-judiciais/indisponibilidade-pje", "tipo": "Web"},
-    {"nome": "TRE-MG - TRE Minas Gerais", "url": "https://www.tse.jus.br/servicos-judiciais/processos/processo-judicial-eletronico/situacao-atual-dos-servicos-digitais-do-tse", "tipo": "Web"},
-    {"nome": "TRE-RJ - TRE Rio de Janeiro", "url": "https://www.tre-rj.jus.br/servicos-judiciais/comunicados/comunicados", "tipo": "Web"}
+    # --- 6. TRIBUNAIS REGIONAIS ELEITORAIS (TREs) ---
+    {"nome": "TRE-SP - Indisponibilidade PJe", "url": "https://www.tre-sp.jus.br/servicos-judiciais/indisponibilidade-pje", "tipo": "Web"},
+    {"nome": "TRE-RJ - Comunicados", "url": "https://www.tre-rj.jus.br/servicos-judiciais/comunicados/comunicados", "tipo": "Web"}
 ]
 
 TERMOS_ALERTA = [
@@ -186,22 +160,33 @@ def scrape_telegram(url):
     return alertas
 
 def scrape_web_generico(url):
-    """Busca links na página que contenham palavras-chave de alerta."""
+    """Busca links na página que contenham palavras-chave de alerta, ignorando menus."""
     alertas = []
     links_vistos = set()
     try:
-        # verify=False ajuda a contornar erros de SSL em sites do governo
         response = requests.get(url, headers=HEADERS, timeout=15, verify=False)
         soup = BeautifulSoup(response.text, 'html.parser')
         
+        # ==========================================================
+        # FILTRO ANTI-MENU: Remove as partes do site que geram "ruído"
+        # ==========================================================
+        tags_para_remover = ["nav", "footer", "header", "aside"]
+        for tag in soup(tags_para_remover):
+            tag.decompose() # Apaga a tag do HTML lido
+            
+        # Remove também divs genéricas que costumam ser menus ou barras laterais
+        for div in soup.find_all('div', class_=lambda c: c and any(x in c.lower() for x in ['menu', 'nav', 'sidebar', 'rodape', 'footer'])):
+            div.decompose()
+        # ==========================================================
+        
+        # Agora procura os links apenas no "miolo" (conteúdo real) da página
         for a_tag in soup.find_all('a', href=True):
             texto_link = a_tag.get_text(strip=True).lower()
             href = a_tag['href']
             
-            # Se o link tiver texto suficiente e contiver algum termo de alerta
-            if len(texto_link) > 15 and any(termo in texto_link for termo in TERMOS_ALERTA):
+            # Aumentamos o limite para 20 caracteres para evitar links curtos e falsos positivos
+            if len(texto_link) > 20 and any(termo in texto_link for termo in TERMOS_ALERTA):
                 if href not in links_vistos:
-                    # Resolve links relativos (ex: /noticias/123 -> https://site.jus.br/noticias/123)
                     link_completo = href if href.startswith('http') else url.rstrip('/') + '/' + href.lstrip('/')
                     
                     alertas.append({
@@ -301,7 +286,7 @@ def gerar_corpos_email(resultados):
             
         html += "</ul>"
 
-    rodape = "\n---\nEste é um e-mail automático gerado pelo Scraper do MAST no GitHub Actions."
+    rodape = "\n---\nEste é um e-mail automático gerado pelo MAST(FO)."
     texto_puro += rodape
     html += f"""
         <hr style="border: 1px solid #eee;">
@@ -324,7 +309,7 @@ def enviar_email(texto_puro, html, total_alertas):
     msg = MIMEMultipart('alternative')
     msg['From'] = remetente
     msg['To'] = destinatario
-    msg['Subject'] = f"MAST Scraper - {datetime.now().strftime('%d/%m/%Y')} ({total_alertas} alertas)"
+    msg['Subject'] = f"MAST(FO) - Monitoramento Automatizado de Sistemas e Tribunais/Fontes Oficiais - {datetime.now().strftime('%d/%m/%Y')} ({total_alertas} alertas)"
 
     # Anexa as versões
     msg.attach(MIMEText(texto_puro, 'plain', 'utf-8'))
