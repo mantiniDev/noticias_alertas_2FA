@@ -88,6 +88,53 @@ TRIBUNAIS = [
     {"id": "303", "name": "TRE Rio de Janeiro", "acronym": "TRE-RJ", "url": "https://www.tre-rj.jus.br/servicos-judiciais/comunicados/comunicados"}
 ]
 
+# --- PÁGINAS OFICIAIS DE NOTÍCIAS E ATOS NORMATIVOS ---
+FONTES_OFICIAIS = [
+    # Sistemas e CNJ
+    {"nome": "Telegram - PJe News", "url": "https://t.me/s/pjenews", "tipo": "Notícias PJe"},
+    {"nome": "PJe Legacy - Notas da Versão", "url": "https://docs.pje.jus.br/servicos-negociais/servico-pje-legacy/notas-da-versao", "tipo": "Release Notes"},
+    {"nome": "CNJ - Notícias PDPJ-Br", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/plataforma-digital-do-poder-judiciario-brasileiro-pdpj-br/noticias/", "tipo": "Notícias"},
+    {"nome": "CNJ - Notícias Justiça 4.0", "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/noticias/", "tipo": "Notícias"},
+    {"nome": "CNJ - Atos Normativos", "url": "https://www.cnj.jus.br/atos_normativos/", "tipo": "Normativos"},
+
+    # Tribunais Superiores e Conselhos
+    {"nome": "STF - Notícias", "url": "https://noticias.stf.jus.br/", "tipo": "Notícias"},
+    {"nome": "STJ - Últimas Notícias", "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias", "tipo": "Notícias"},
+    {"nome": "TST - Notícias", "url": "https://www.tst.jus.br/noticias", "tipo": "Notícias"},
+    {"nome": "CSJT - Normativos", "url": "https://www.csjt.jus.br/web/csjt/normativos", "tipo": "Normativos"},
+    {"nome": "CSJT - Legislação e Atos", "url": "https://www.csjt.jus.br/web/csjt/legislacao-atos", "tipo": "Normativos"},
+
+    # Tribunais de Justiça (Estaduais)
+    {"nome": "TJSP - Notícias eproc", "url": "https://www.tjsp.jus.br/eproc/Noticias", "tipo": "Notícias eproc"},
+    {"nome": "TJSP - Notícias Gerais", "url": "https://www.tjsp.jus.br/Noticias", "tipo": "Notícias"},
+    {"nome": "TJSP - Comunicados (Precatórios)", "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85", "tipo": "Comunicados"},
+    {"nome": "TJMG - Notícias", "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/", "tipo": "Notícias"},
+    {"nome": "TJMG - Atos Normativos", "url": "https://www.tjmg.jus.br/portal-tjmg/atos-normativos/", "tipo": "Normativos"},
+    {"nome": "TJRJ - Notícias", "url": "https://www.tjrj.jus.br/web/guest/noticias", "tipo": "Notícias"},
+    {"nome": "TJPR - Notícias", "url": "https://www.tjpr.jus.br/noticias", "tipo": "Notícias"},
+    {"nome": "TJPR - Legislação e Atos Normativos", "url": "https://www.tjpr.jus.br/legislacao-atos-normativos", "tipo": "Normativos"},
+    {"nome": "TJRS - Notícias", "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/", "tipo": "Notícias"},
+    {"nome": "TJRS - Publicações Administrativas", "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/", "tipo": "Normativos"},
+    {"nome": "TJBA - Agência de Notícias", "url": "https://www.tjba.jus.br/portal/agencia-de-noticias/", "tipo": "Notícias"},
+
+    # Tribunais Regionais Federais (TRFs)
+    {"nome": "TRF1 - Notícias", "url": "https://www.trf1.jus.br/trf1/noticias/", "tipo": "Notícias"},
+    {"nome": "TRF2 - Portal", "url": "https://www.trf2.jus.br/", "tipo": "Notícias"},
+    {"nome": "TRF3 - Últimas Notícias", "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias", "tipo": "Notícias"},
+    {"nome": "TRF4 - Notícias", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=noticia_portal", "tipo": "Notícias"},
+    {"nome": "TRF4 - Atos Normativos", "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=ato_normativo_pesquisar", "tipo": "Normativos"},
+    {"nome": "TRF5 - Notícias", "url": "https://www.trf5.jus.br/index.php/noticias", "tipo": "Notícias"},
+    {"nome": "TRF6 - Notícias", "url": "https://portal.trf6.jus.br/noticias/", "tipo": "Notícias"},
+    {"nome": "TRF6 - Atos Normativos", "url": "https://portal.trf6.jus.br/atos-normativos/", "tipo": "Normativos"},
+
+    # Tribunais Regionais do Trabalho (TRTs)
+    {"nome": "TRT1 - Últimas Notícias", "url": "https://www.trt1.jus.br/ultimas-noticias", "tipo": "Notícias"},
+    {"nome": "TRT1 - Biblioteca Digital (Atos)", "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6", "tipo": "Normativos"},
+    {"nome": "TRT2 - Notícias", "url": "https://ww2.trt2.jus.br/noticias/noticias", "tipo": "Notícias"},
+    {"nome": "TRT3 - Notícias Institucionais", "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais", "tipo": "Notícias"},
+    {"nome": "TRT4 - Notícias", "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0", "tipo": "Notícias"},
+]
+
 TERMOS_ESPECIFICOS = [
     '"2FA PJE"', '"MFA PJE"', '"dois fatores PJE"', '"duplo fator PJE"', 
     '"duplo fator EPROC"', '"duplo fator ESAJ"', '"duplo fator PROJUDI"', 
@@ -164,33 +211,42 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
 def buscar_noticias_semanais():
     todas_noticias = []
     links_ja_coletados = set()
-    data_limite = datetime.now() - timedelta(days=7)
+    data_limite = datetime.now() - timedelta(days=1) # Mantido para 24 horas, conforme combinamos
 
-    # PARTE 1: Busca ampla no Google (o Python limpa o lixo depois)
+    # ==============================================================================
+    # O SEGREDO ESTÁ AQUI: Adicionamos o "site:jus.br" para forçar o Google
+    # a procurar APENAS em domínios oficiais da justiça (eliminando G1, Conjur, etc).
+    # ==============================================================================
+    filtro_dominio = "(site:jus.br OR site:csjt.jus.br)"
+
     termos_base_google = '("PJE" OR "EPROC" OR "PROJUDI" OR "indisponibilidade" OR "sistema" OR "segurança" OR "autenticação")'
     
     siglas = [tribunal["acronym"] for tribunal in TRIBUNAIS]
     tamanho_lote = 10
     lotes_siglas = [siglas[i:i + tamanho_lote] for i in range(0, len(siglas), tamanho_lote)]
     
-    print(f"Iniciando Fase 1: Varredura de {len(siglas)} Tribunais...")
+    print(f"Iniciando Fase 1: Varredura de {len(siglas)} Tribunais APENAS em fontes oficiais...")
     for i, lote in enumerate(lotes_siglas, 1):
         query_tribunais = "(" + " OR ".join(f'"{sigla}"' for sigla in lote) + ")"
-        query_final = f"{termos_base_google} AND {query_tribunais}"
+        
+        # Junta os termos base + as siglas dos tribunais + o filtro de domínios oficiais
+        query_final = f"{termos_base_google} AND {query_tribunais} AND {filtro_dominio}"
         query_codificada = urllib.parse.quote(query_final)
         
         url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
         extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
         time.sleep(1.5)
 
-    # PARTE 2: Busca pelas frases exatas
-    print("Iniciando Fase 2: Busca por frases exatas de TI e Segurança...")
+    print("Iniciando Fase 2: Busca por frases exatas de TI e Segurança APENAS em fontes oficiais...")
     tamanho_lote_termos = 6
     lotes_termos = [TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos] for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)]
     
     for i, lote in enumerate(lotes_termos, 1):
         query_frases = "(" + " OR ".join(lote) + ")"
-        query_codificada = urllib.parse.quote(query_frases)
+        
+        # Junta as frases específicas + o filtro de domínios oficiais
+        query_final = f"{query_frases} AND {filtro_dominio}"
+        query_codificada = urllib.parse.quote(query_final)
         
         url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
         extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
@@ -279,7 +335,7 @@ def enviar_email(texto_puro, html, total_noticias):
     msg = MIMEMultipart('alternative')
     msg['From'] = remetente
     msg['To'] = destinatario
-    msg['Subject'] = f"Monitor de Tribunais e Sistemas - {datetime.now().strftime('%d/%m/%Y')} ({total_noticias} alertas)"
+    msg['Subject'] = f"Monitoramento Automatizado de Sistemas e Tribunais - {datetime.now().strftime('%d/%m/%Y')} ({total_noticias} alertas)"
 
     # Anexa as duas versões
     parte1 = MIMEText(texto_puro, 'plain', 'utf-8')
