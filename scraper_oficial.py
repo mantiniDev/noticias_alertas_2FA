@@ -229,7 +229,7 @@ def gerar_corpos_email(resultados):
     hoje = datetime.now().strftime("%d/%m/%Y às %H:%M")
     
     # 1. Versão Texto Puro
-    texto_puro = f"MAST(FO) - Monitoramento Automatizado de Sistemas e Tribunais/Fontes Oficiais\nData da varredura: {hoje}\n\n"
+    texto_puro = f"MAST(FO) - MAST / Fontes Oficiais\nData da varredura: {hoje}\n\n"
     
     # 2. Versão HTML (Com um design levemente diferente em vermelho para indicar Alerta do Scraper)
     html = f"""
