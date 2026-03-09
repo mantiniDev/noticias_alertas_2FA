@@ -346,7 +346,7 @@ def buscar_noticias_semanais():
     todas_noticias = []
     links_ja_coletados = set()
     ## Alterado para buscar notícias dos últimos 2 dias
-    data_limite = datetime.now() - timedelta(days=7)
+    data_limite = datetime.now() - timedelta(days=2)
 
     # ==============================================================================
     # O SEGREDO ESTÁ AQUI: Adicionamos o "site:jus.br" para forçar o Google
@@ -354,7 +354,17 @@ def buscar_noticias_semanais():
     # ==============================================================================
     filtro_dominio = "(site:jus.br OR site:csjt.jus.br)"
 
-    termos_base_google = '("PJE" OR "EPROC" OR "PROJUDI" OR "indisponibilidade" OR "sistema" OR "segurança" OR "autenticação")'
+    # ==============================================================================
+    # O SEGREDO ESTÁ AQUI: Rede Larga de TI, SRE e Segurança (Fase 1)
+    # ==============================================================================
+    termos_base_google = (
+        '('
+        '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR '
+        '"indisponibilidade" OR "instabilidade" OR "manutenção" OR "fora do ar" OR "lentidão" OR '
+        '"2FA" OR "MFA" OR "SSO" OR "ciberataque" OR "hacker" OR "vulnerabilidade" OR "token" OR '
+        '"migração" OR "atualização" OR "versão" OR "API" OR "nuvem" OR "datacenter"'
+        ')'
+    )
 
     siglas = [tribunal["acronym"] for tribunal in TRIBUNAIS]
     tamanho_lote = 10
@@ -404,7 +414,7 @@ def buscar_noticias_semanais():
 
 def gerar_corpos_email(noticias):
     hoje = datetime.now().strftime("%d/%m/%Y")
-    uma_semana_atras = (datetime.now() - timedelta(days=7)).strftime("%d/%m/%Y")
+    uma_semana_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
 
     texto_puro = f"MAST - Monitoramento Automatizado de Sistemas e Tribunais ({uma_semana_atras} a {hoje})\n\n"
 

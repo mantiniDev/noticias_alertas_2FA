@@ -2,7 +2,7 @@ name: MAST - Monitoramento Automatizado de Sistemas e Tribunais
 
 "on":
   schedule:
-    - cron: '0 11 * * 4'
+    - cron: '0 11 * * *'
   workflow_dispatch:
 
 jobs:
@@ -30,6 +30,6 @@ jobs:
           EMAIL_DESTINATARIO: ${{ secrets.EMAIL_SLACK_DESTINATARIO}}
         run: |
           python script.py
-          python scraper_oficial.py
+          
 
           
