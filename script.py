@@ -345,8 +345,8 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
 def buscar_noticias_semanais():
     todas_noticias = []
     links_ja_coletados = set()
-    ## Alterado para buscar notícias dos últimos 2 dias
-    data_limite = datetime.now() - timedelta(days=2)
+    ## Alterado para buscar notícias dos últimos 3 dias
+    data_limite = datetime.now() - timedelta(days=3)
 
     # ==============================================================================
     # O SEGREDO ESTÁ AQUI: Adicionamos o "site:jus.br" para forçar o Google
@@ -427,7 +427,7 @@ def gerar_corpos_email(noticias):
     """
 
     if not noticias:
-        msg_vazia = "Nenhuma notícia 100% relevante de TI/Sistemas encontrada nos últimos 7 dias."
+        msg_vazia = "Nenhuma notícia 100% relevante de TI/Sistemas encontrada nos últimos 2 dias."
         texto_puro += msg_vazia + "\n"
         html += f"<p>{msg_vazia}</p>"
     else:
@@ -442,7 +442,7 @@ def gerar_corpos_email(noticias):
             for tribunal in TRIBUNAIS:
                 if tribunal['acronym'].lower() in titulo_lower:
                     link_oficial_html = f"<br><a href='{tribunal['url']}' style='display: inline-block; margin-top: 8px; padding: 5px 10px; background-color: #e8f4f8; color: #2980b9; text-decoration: none; border-radius: 4px; font-size: 0.85em;'>🔍 Checar Status Oficial do {tribunal['acronym']}</a>"
-                    link_oficial_texto = f"\n   Status Oficial: {tribunal['url']}"
+                    #link_oficial_texto = f"\n   Status Oficial: {tribunal['url']}"
                     break  # Para de procurar assim que achar o primeiro
 
             # 2. Adiciona ao Texto Puro
@@ -457,7 +457,6 @@ def gerar_corpos_email(noticias):
                 <p style="margin: 0; font-size: 0.9em; color: #7f8c8d;">
                     📅 {data_formatada} &nbsp;|&nbsp; 📰 Fonte: {noticia['fonte']}
                 </p>
-                {link_oficial_html}
             </li>
             """
         html += "</ul>"
