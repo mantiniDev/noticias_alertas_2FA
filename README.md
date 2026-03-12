@@ -4,34 +4,38 @@
 [![GitHub Actions](https://img.shields.io/badge/Build-Automated-success.svg)](https://github.com/mantiniDev/noticias_alertas_2FA/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** de motor duplo, construído em Python, para monitorizar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
+> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** construído em Python, focado em monitorizar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
 
 O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisponibilidades de sistemas (PJe, eproc, e-SAJ, Projudi), ciberataques, implementação de MFA/2FA e novas portarias em mais de **60 tribunais brasileiros** (STF, STJ, TJs, TRFs, TRTs e TREs).
 
 ---
 
-## ✨ Arquitetura de Duplo Motor (Dual-Engine)
+## ✨ Arquitetura Atual: Motor de Busca Avançada (`script.py`)
 
-O MAST opera com dois scripts independentes e complementares para garantir que nenhum aviso passe despercebido, criando um ecossistema redundante e de altíssima precisão:
+Nesta versão atual, o MAST opera através de um poderoso motor de varredura baseado no ecossistema de indexação de notícias, projetado para altíssima precisão e zero ruído:
 
-### 📡 Motor 1: Google News RSS Avançado (`script.py`)
-- **Busca Focada e Dinâmica:** Lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
-- **Filtro de Malha Fina (Regex):** Um algoritmo analisa o título de cada notícia para garantir que ela contém termos exatos de TI. Plurais são aceitos automaticamente, e palavras inseridas no meio de outras (ex: `SSO` dentro de `processo`) são ignoradas.
+- **Busca Focada e Dinâmica:** O script lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
+- **Filtro de Malha Fina (Regex):** Um algoritmo passa as notícias por um "Raio-X" para garantir que contêm termos exatos de TI. Plurais são aceitos automaticamente, e palavras inseridas no meio de outras (ex: `SSO` dentro de `processo`) são ignoradas.
+- **Bloqueio de Falsos Positivos:** Notícias sobre RH, concursos, orçamento ou eleições (que costumam poluir os feeds do judiciário) são sumariamente descartadas por uma *Blacklist* interna.
 - **Smart Links Oficiais:** Ao detetar uma notícia sobre um tribunal específico, o robô cruza a informação com a base e anexa ao e-mail de alerta um link direto para a página de status/certidão oficial daquele tribunal.
-
-### 🕷️ Motor 2: Scraper de Fontes Oficiais (`scraper_oficial.py`)
-- **Varredura Direta (Passive-Aggressive):** Acessa ativamente o código-fonte de dezenas de páginas de indisponibilidade oficiais, murais de avisos e diários eletrônicos.
-- **Filtro Anti-Ruído Estrutural:** Utiliza o `BeautifulSoup` para "apagar" virtualmente menus de navegação (`<nav>`), cabeçalhos e rodapés antes da análise. O alerta só dispara se o conteúdo estiver no texto real da página, ignorando botões fixos.
-- **Integração Telegram:** Lê e processa mensagens diretamente da interface web do canal oficial *PJe News* (`t.me/s/pjenews`).
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🗺️ Roadmap: Próxima Versão (Arquitetura de Motor Duplo)
+
+Para a próxima grande atualização do MAST, já está em fase de testes a implementação do **Motor Secundário (Scraper Direto de Fontes Oficiais)**, que trabalhará em paralelo com o motor atual para criar um ecossistema 100% redundante:
+
+- **Varredura Direta (Passive-Aggressive):** Acessará ativamente o código-fonte de dezenas de páginas de indisponibilidade oficiais e painéis de aviso (sem depender de indexadores de busca).
+- **Filtro Anti-Ruído Estrutural:** Utilizará o `BeautifulSoup` para "apagar" virtualmente menus de navegação (`<nav>`) e rodapés antes da análise, garantindo que o alerta só dispare pelo conteúdo real da página.
+- **Integração Telegram:** Fará a leitura direta da interface web de canais oficiais como o *PJe News* (`t.me/s/pjenews`).
+
+---
+
+## 🛠️ Tecnologias Utilizadas (Versão Atual)
 
 - **Python 3.12+**
 - **Feedparser** (Leitura, extração e parsing de RSS)
-- **Requests & BeautifulSoup4** (Web Scraping e higienização de DOM/HTML)
-- **Urllib & Urllib3** (Codificação de Queries e bypass de certificados SSL governamentais)
+- **Urllib & Urllib3** (Codificação de Queries de busca)
 - **Re & Unicodedata** (Expressões Regulares e normalização de texto para o filtro de malha fina)
 - **Smtplib & Email.mime** (Geração de relatórios responsivos em HTML e Plain Text)
 - **GitHub Actions** (Automação, CI/CD, Cron Jobs e ambiente Serverless)
@@ -60,17 +64,17 @@ Se desejar forçar uma execução manual:
 
 ## 🚧 Desafios Superados na Engenharia de Dados
 
-Durante o desenvolvimento deste SOC automatizado, diversos desafios comuns em scraping/OSINT foram resolvidos:
+Durante o desenvolvimento deste SOC automatizado, diversos desafios comuns em OSINT foram resolvidos:
 
-* **O Problema do "Ruído Administrativo" (Falsos Positivos):** Tribunais publicam muito sobre RH, concursos e orçamento. Criamos uma *Blacklist* (`TERMOS_BLOQUEADOS`) aliada a Expressões Regulares (`\b`) que bloqueia sumariamente notícias não-técnicas.
-* **Rate Limits do Google (Erro 400):** Pesquisar em mais de 60 sites de uma vez gerava erro de "URL Too Large". A solução foi desenvolver uma lógica de paginação que divide os domínios em blocos de 20.
-* **Erros Ortográficos e Plurais (Falsos Negativos):** A busca por "ciberataque" ignorava "ciberataques". O motor foi aprimorado com regex flexível `(s|es)?` e a biblioteca `unicodedata` foi implementada para remover acentos (`manutencao` == `manutenção`) antes de qualquer validação.
+* **O Problema do "Ruído Administrativo":** Tribunais publicam muito sobre administração. Criamos uma *Blacklist* (`TERMOS_BLOQUEADOS`) aliada a Expressões Regulares (`\b`) que bloqueia sumariamente notícias não-técnicas.
+* **Rate Limits de Buscadores (Erro 400):** Pesquisar em mais de 60 sites de uma vez gerava erro de "URL Too Large". A solução foi desenvolver uma lógica de paginação que divide os domínios em pequenos blocos seguros.
+* **Erros Ortográficos e Plurais:** A busca por "ciberataque" ignorava "ciberataques". O motor foi aprimorado com regex flexível `(s|es)?` e a biblioteca `unicodedata` foi implementada para remover acentos (`manutencao` == `manutenção`) antes da validação.
 
 ---
 
 ## 🧠 Customização
 
-Para adicionar novos termos de monitoramento cibernético, basta editar as listas no topo dos scripts:
+Para adicionar novos termos de monitoramento cibernético, basta editar as listas no topo do script principal (`script.py`):
 - `TERMOS_FORTES_TI` e `TERMOS_COMPOSTOS`: Gatilhos para acionar o envio de e-mails.
 - `TERMOS_BLOQUEADOS`: Palavras que reprovam e descartam a notícia instantaneamente.
 
