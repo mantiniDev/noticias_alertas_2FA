@@ -7,6 +7,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import os
 import re 
+import unicodedata
 
 # ==============================================================================
 # 1. CONSTANTES E CONFIGURAÇÕES DE BUSCA
@@ -259,7 +260,6 @@ TERMOS_ESPECIFICOS = [
 # 2. MALHA FINA (Filtro rigoroso de Títulos em Python)
 # ==============================================================================
 
-# Removidos "jus.br", "migração" e "novo sistema" daqui para evitar falsos positivos
 TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", 
     "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
@@ -283,80 +283,131 @@ TERMOS_COMPOSTOS = [
     ["novo", "sistema"]
 ]
 
-# Palavras que, se aparecerem, REPROVAM a notícia na hora (Corta o ruído administrativo)
 TERMOS_BLOQUEADOS = [
     "estágio", "estagiário", "processo seletivo", "concurso", "vaga",
     "coptrel", "grêmio", "orçamentário", "orçamento", "feminicídio", "popruajud",
     "local de votação", "seções eleitorais", "mesária", "janela partidária",
-    "título de eleitor", "eleições", "custas judiciais", "gestão de pessoas"
+    "título de eleitor", "eleições", "custas judiciais", "gestão de pessoas", "semana da mulher"
 ]
 
-def validar_titulo_noticia(titulo):
-    """Verifica se o título da notícia realmente fala sobre sistemas ou TI."""
-    
-    # O Google News adiciona " - Nome do Site" no final do título.
-    # Vamos remover essa parte final para o script ler apenas o título real da notícia.
-    titulo_limpo = titulo.rsplit(' - ', 1)[0].lower()
-    
-    # 1. FILTRO NEGATIVO: Se tiver termo de RH/Administrativo, bloqueia logo.
-    if any(termo in titulo_limpo for termo in TERMOS_BLOQUEADOS):
-        return False
-        
-    # 2. FILTRO EXATO DE TI (Usa Regex \b para garantir que é a palavra inteira)
-    # Isso impede que "sso" dê match em "processo" ou "pje" em "laje".
+def remover_acentos(texto):
+    """Remove acentos do texto para que 'manutenção' e 'manutencao' sejam a mesma coisa."""
+    if not texto: return ""
+    nfkd = unicodedata.normalize('NFKD', texto)
+    return u"".join([c for c in nfkd if not unicodedata.combining(c)])
+
+def texto_tem_bloqueio(texto_limpo):
+    """Verifica se há palavras de RH/Admin usando palavra exata."""
+    for termo in TERMOS_BLOQUEADOS:
+        termo_limpo = remover_acentos(termo.lower())
+        # \b palavra \b garante que não pega pedaços de palavras
+        if re.search(r'\b' + re.escape(termo_limpo) + r'(s)?\b', texto_limpo):
+            return True
+    return False
+
+def texto_tem_alerta(texto_limpo):
+    """Verifica se há alertas de TI considerando plurais."""
+    # 1. Filtro Exato
     for termo in TERMOS_FORTES_TI:
-        padrao = r'\b' + re.escape(termo) + r'\b'
-        if re.search(padrao, titulo_limpo):
+        termo_limpo = remover_acentos(termo.lower())
+        # (es)? e (s)? permite pegar plural (ex: ciberataques, instabilidades)
+        padrao = r'\b' + re.escape(termo_limpo) + r'(s|es)?\b'
+        if re.search(padrao, texto_limpo):
             return True
             
-    # 3. FILTRO DE TERMOS COMPOSTOS
+    # 2. Filtro Composto
     for par in TERMOS_COMPOSTOS:
-        padrao1 = r'\b' + re.escape(par[0]) + r'\b'
-        padrao2 = r'\b' + re.escape(par[1]) + r'\b'
-        if re.search(padrao1, titulo_limpo) and re.search(padrao2, titulo_limpo):
+        p1 = remover_acentos(par[0].lower())
+        p2 = remover_acentos(par[1].lower())
+        padrao1 = r'\b' + re.escape(p1) + r'(s|es)?\b'
+        padrao2 = r'\b' + re.escape(p2) + r'(s|es)?\b'
+        if re.search(padrao1, texto_limpo) and re.search(padrao2, texto_limpo):
             return True
             
     return False
-# ==============================================================================
-# 3. MOTOR DE BUSCA E EXTRAÇÃO
-# ==============================================================================
 
+def avaliar_noticia(titulo, resumo):
+    """
+    Inteligência principal: Avalia título e resumo de forma segura.
+    Retorna True se a notícia deve ser enviada para o e-mail.
+    """
+    # Limpa e remove o sufixo automático do Google News do título
+    titulo_puro = titulo.rsplit(' - ', 1)[0]
+    titulo_formatado = remover_acentos(titulo_puro.lower())
+    resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
+
+    # REGRA 1: Se o Título é claramente de TI e não tem bloqueio no Título -> APROVADO
+    # (Ignoramos o resumo aqui, porque o título é soberano)
+    if texto_tem_alerta(titulo_formatado) and not texto_tem_bloqueio(titulo_formatado):
+        return True
+        
+    # REGRA 2: Se o Título não revelou muito, olhamos o Resumo.
+    # O Resumo deve ter TI e NÃO PODE ter palavras de bloqueio.
+    if texto_tem_alerta(resumo_formatado) and not texto_tem_bloqueio(resumo_formatado):
+        # Mas atenção: O título também não pode ter bloqueio!
+        if not texto_tem_bloqueio(titulo_formatado):
+            return True
+
+    return False
 
 def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias):
-    """Lê o RSS, valida a data, a duplicidade e passa pelo filtro de título."""
     feed = feedparser.parse(url_rss)
     for entry in feed.entries:
         if hasattr(entry, 'published_parsed'):
-            data_publicacao = datetime.fromtimestamp(
-                time.mktime(entry.published_parsed))
+            data_publicacao = datetime.fromtimestamp(time.mktime(entry.published_parsed))
 
-            # Condição tripla: Data Ok + Link Novo + Título Relevante
             if data_publicacao >= data_limite and entry.link not in links_ja_coletados:
-                if validar_titulo_noticia(entry.title):
+                # --- A MUDANÇA ESTÁ AQUI ---
+                titulo = entry.title
+                # Pega o resumo (summary), se não existir, usa uma string vazia
+                resumo = entry.summary if hasattr(entry, 'summary') else ""
+                
+                # Valida se os termos aparecem no Título OU no Resumo
+                if avaliar_noticia(titulo, resumo):
                     todas_noticias.append({
-                        'titulo': entry.title,
+                        'titulo': titulo,
+                        'resumo': resumo, # Guardamos o resumo para o e-mail
                         'link': entry.link,
                         'data_obj': data_publicacao,
                         'fonte': entry.source.title if hasattr(entry, 'source') else "Google News"
                     })
                     links_ja_coletados.add(entry.link)
 
+def extrair_dominios_oficiais():
+    """Extrai os domínios raiz dinamicamente de todas as URLs cadastradas."""
+    dominios = set()
+    for item in TRIBUNAIS + FONTES_OFICIAIS:
+        url = item.get("url", "")
+        netloc = urllib.parse.urlparse(url).netloc
+        
+        # Ignora links de planilhas do Google para não trazer resultados genéricos
+        if not netloc or "google" in netloc:
+            continue
+            
+        partes = netloc.split('.')
+        # Remove subdomínios (ex: www.tjsp.jus.br vira apenas tjsp.jus.br)
+        if len(partes) >= 3 and partes[-1] == 'br' and partes[-2] == 'jus':
+            dominio_base = f"{partes[-3]}.jus.br"
+            dominios.add(dominio_base)
+        else:
+            # Para sites que não são .jus.br (como t.me)
+            dominios.add(netloc)
+            
+    return list(dominios)
 
 def buscar_noticias_semanais():
     todas_noticias = []
     links_ja_coletados = set()
-    ## Alterado para buscar notícias dos últimos 3 dias
-    data_limite = datetime.now() - timedelta(days=3)
+    data_limite = datetime.now() - timedelta(days=2)
 
-    # ==============================================================================
-    # O SEGREDO ESTÁ AQUI: Adicionamos o "site:jus.br" para forçar o Google
-    # a procurar APENAS em domínios oficiais da justiça (eliminando G1, Conjur, etc).
-    # ==============================================================================
-    filtro_dominio = "(site:jus.br OR site:csjt.jus.br)"
+    # 1. Obter todos os domínios únicos da sua lista
+    lista_dominios = extrair_dominios_oficiais()
+    
+    # 2. Dividir os domínios em blocos de 20 para NÃO estourar o limite do Google
+    tamanho_lote_dominios = 20
+    lotes_dominios = [lista_dominios[i:i + tamanho_lote_dominios] for i in range(0, len(lista_dominios), tamanho_lote_dominios)]
 
-    # ==============================================================================
-    # O SEGREDO ESTÁ AQUI: Rede Larga de TI, SRE e Segurança (Fase 1)
-    # ==============================================================================
+    # Rede Larga de TI (Fase 1)
     termos_base_google = (
         '('
         '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR '
@@ -368,42 +419,38 @@ def buscar_noticias_semanais():
 
     siglas = [tribunal["acronym"] for tribunal in TRIBUNAIS]
     tamanho_lote = 10
-    lotes_siglas = [siglas[i:i + tamanho_lote]
-                    for i in range(0, len(siglas), tamanho_lote)]
+    lotes_siglas = [siglas[i:i + tamanho_lote] for i in range(0, len(siglas), tamanho_lote)]
 
-    print(
-        f"Iniciando Fase 1: Varredura de {len(siglas)} Tribunais APENAS em fontes oficiais...")
-    for i, lote in enumerate(lotes_siglas, 1):
-        query_tribunais = "(" + \
-            " OR ".join(f'"{sigla}"' for sigla in lote) + ")"
+    print(f"Iniciando Fase 1: Varredura de Tribunais diretamente em {len(lista_dominios)} domínios oficiais...")
+    for lote_siglas in lotes_siglas:
+        query_tribunais = "(" + " OR ".join(f'"{sigla}"' for sigla in lote_siglas) + ")"
+        
+        # Cruza cada lote de tribunais com cada lote de domínios
+        for lote_dom in lotes_dominios:
+            filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
+            query_final = f"{termos_base_google} AND {query_tribunais} AND {filtro_dominio}"
+            query_codificada = urllib.parse.quote(query_final)
+            
+            url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            time.sleep(1.5)
 
-        # Junta os termos base + as siglas dos tribunais + o filtro de domínios oficiais
-        query_final = f"{termos_base_google} AND {query_tribunais} AND {filtro_dominio}"
-        query_codificada = urllib.parse.quote(query_final)
-
-        url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
-        extrair_noticias_do_feed(url_rss, data_limite,
-                                 links_ja_coletados, todas_noticias)
-        time.sleep(1.5)
-
-    print("Iniciando Fase 2: Busca por frases exatas de TI e Segurança APENAS em fontes oficiais...")
+    print("Iniciando Fase 2: Busca por frases exatas de TI e Segurança...")
     tamanho_lote_termos = 6
-    lotes_termos = [TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos]
-                    for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)]
+    lotes_termos = [TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos] for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)]
 
-    for i, lote in enumerate(lotes_termos, 1):
-        query_frases = "(" + " OR ".join(lote) + ")"
+    for lote_termos in lotes_termos:
+        query_frases = "(" + " OR ".join(lote_termos) + ")"
+        
+        for lote_dom in lotes_dominios:
+            filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
+            query_final = f"{query_frases} AND {filtro_dominio}"
+            query_codificada = urllib.parse.quote(query_final)
+            
+            url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            time.sleep(1.5)
 
-        # Junta as frases específicas + o filtro de domínios oficiais
-        query_final = f"{query_frases} AND {filtro_dominio}"
-        query_codificada = urllib.parse.quote(query_final)
-
-        url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
-        extrair_noticias_do_feed(url_rss, data_limite,
-                                 links_ja_coletados, todas_noticias)
-        time.sleep(1.5)
-
-    # Ordena cronologicamente
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)
     return todas_noticias
 
