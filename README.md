@@ -1,93 +1,79 @@
 # 🏛️ MAST - Monitoramento Automatizado de Sistemas e Tribunais
 
-> Um robô de OSINT (Open Source Intelligence) de motor duplo, construído em Python, para monitorizar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
+[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![GitHub Actions](https://img.shields.io/badge/Build-Automated-success.svg)](https://github.com/mantiniDev/noticias_alertas_2FA/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisponibilidades (PJe, eproc, e-SAJ, Projudi), ciberataques, implementação de MFA/2FA e novas portarias em **63 tribunais brasileiros** (STF, STJ, TJs, TRFs, TRTs e TREs).
+> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** de motor duplo, construído em Python, para monitorizar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
+
+O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisponibilidades de sistemas (PJe, eproc, e-SAJ, Projudi), ciberataques, implementação de MFA/2FA e novas portarias em mais de **60 tribunais brasileiros** (STF, STJ, TJs, TRFs, TRTs e TREs).
 
 ---
 
 ## ✨ Arquitetura de Duplo Motor (Dual-Engine)
 
-O MAST agora opera com dois scripts independentes e complementares para garantir que nenhum aviso passe despercebido:
+O MAST opera com dois scripts independentes e complementares para garantir que nenhum aviso passe despercebido, criando um ecossistema redundante e de altíssima precisão:
 
-### 📡 Motor 1: Google News RSS (`script.py`)
-- **Busca Focada:** Utiliza operadores avançados (`site:jus.br OR site:csjt.jus.br`) no Google News para varrer apenas domínios oficiais, eliminando ruído de jornais locais e blogs jurídicos.
-- **Filtro de Malha Fina:** Um algoritmo analisa o título de cada notícia para garantir que ela contém *Termos Fortes* de TI (ex: "ransomware", "instabilidade", "pje") antes de disparar o alerta.
-- **Smart Links Oficiais:** Ao detetar uma notícia sobre um tribunal específico (ex: "TJSP"), o robô cruza a informação com o banco de dados interno e anexa ao alerta um link direto para a página de status oficial daquele tribunal.
+### 📡 Motor 1: Google News RSS Avançado (`script.py`)
+- **Busca Focada e Dinâmica:** Lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
+- **Filtro de Malha Fina (Regex):** Um algoritmo analisa o título de cada notícia para garantir que ela contém termos exatos de TI. Plurais são aceitos automaticamente, e palavras inseridas no meio de outras (ex: `SSO` dentro de `processo`) são ignoradas.
+- **Smart Links Oficiais:** Ao detetar uma notícia sobre um tribunal específico, o robô cruza a informação com a base e anexa ao e-mail de alerta um link direto para a página de status/certidão oficial daquele tribunal.
 
 ### 🕷️ Motor 2: Scraper de Fontes Oficiais (`scraper_oficial.py`)
-- **Varredura Direta:** Acessa ativamente o código-fonte de mais de 60 páginas de indisponibilidade oficiais, murais de avisos e diários eletrónicos.
-- **Integração com Telegram:** Lê e processa mensagens diretamente do canal oficial *PJe News* (`t.me/s/pjenews`).
-- **Filtro Anti-Ruído Estrutural:** Utiliza inteligência no `BeautifulSoup` para "apagar" virtualmente menus de navegação (`<nav>`), cabeçalhos e rodapés dos sites antes da análise, garantindo que o alerta seja disparado apenas pelo conteúdo real da página e não por botões fixos.
-
----
-
-## 📧 Notificações e Relatórios
-- **Design Distinto:** Gera relatórios responsivos em HTML. Alertas de notícias (RSS) chegam com detalhes em azul, enquanto detecções diretas nos painéis (Scraper) chegam sinalizadas em vermelho.
-- **Integração Nativa:** Envia alertas automaticamente via SMTP (E-mail). Pode ser facilmente integrado ao Slack utilizando a funcionalidade de "Enviar e-mail para o canal".
+- **Varredura Direta (Passive-Aggressive):** Acessa ativamente o código-fonte de dezenas de páginas de indisponibilidade oficiais, murais de avisos e diários eletrônicos.
+- **Filtro Anti-Ruído Estrutural:** Utiliza o `BeautifulSoup` para "apagar" virtualmente menus de navegação (`<nav>`), cabeçalhos e rodapés antes da análise. O alerta só dispara se o conteúdo estiver no texto real da página, ignorando botões fixos.
+- **Integração Telegram:** Lê e processa mensagens diretamente da interface web do canal oficial *PJe News* (`t.me/s/pjenews`).
 
 ---
 
 ## 🛠️ Tecnologias Utilizadas
 
 - **Python 3.12+**
-- **Feedparser** (Leitura e conversão de RSS)
-- **Requests & BeautifulSoup4** (Web Scraping e parsing de HTML)
+- **Feedparser** (Leitura, extração e parsing de RSS)
+- **Requests & BeautifulSoup4** (Web Scraping e higienização de DOM/HTML)
 - **Urllib & Urllib3** (Codificação de Queries e bypass de certificados SSL governamentais)
-- **Smtplib & Email.mime** (Geração e envio de e-mails)
-- **GitHub Actions** (Automação, Agendamento Cron e ambiente Serverless)
+- **Re & Unicodedata** (Expressões Regulares e normalização de texto para o filtro de malha fina)
+- **Smtplib & Email.mime** (Geração de relatórios responsivos em HTML e Plain Text)
+- **GitHub Actions** (Automação, CI/CD, Cron Jobs e ambiente Serverless)
 
 ---
 
-## 🚀 Como Configurar (Deploy no GitHub Actions)
+## 🚀 Como Configurar e Rodar
 
-### 1. Preparar o Repositório
-Adicione os dois ficheiros principais na raiz do seu repositório:
-- `script.py`
-- `scraper_oficial.py`
+O projeto foi desenhado para rodar nativamente e sem custos no **GitHub Actions**.
 
-### 2. Configurar as Variáveis de Ambiente (Secrets)
-Para que os robôs consigam enviar os relatórios de forma segura, vá a:
-`Settings` > `Secrets and variables` > `Actions` > `New repository secret`.
+### 1. Preparar as Variáveis de Ambiente (Secrets)
+Vá até a aba `Settings` > `Secrets and variables` > `Actions` > `New repository secret` no seu repositório e adicione:
+- `EMAIL_REMETENTE`: O e-mail que vai enviar os relatórios automatizados.
+- `EMAIL_SENHA`: A App Password (Senha de Aplicativo) do seu provedor de e-mail.
+- `EMAIL_DESTINATARIO`: O e-mail (ou e-mail de integração de canal do Slack/Teams) que receberá os alertas.
 
-Adicione as seguintes variáveis:
-- `EMAIL_REMETENTE`: O e-mail que vai **enviar** o alerta (ex: `seu-email-bot@gmail.com`).
-- `EMAIL_SENHA`: A palavra-passe de aplicação do seu e-mail (se usar Gmail, crie uma [App Password](https://myaccount.google.com/apppasswords)).
-- `EMAIL_DESTINATARIO`: O e-mail que vai **receber** o alerta. *(Dica: Se utiliza o Slack, crie um endereço de e-mail de integração do canal e cole aqui).*
+### 2. Pipeline Automatizada
+O projeto já conta com o arquivo `.github/workflows/monitor.yml`. Por padrão, o sistema rodará todos os dias automaticamente e enviará o relatório para os destinatários cadastrados.
 
-### 3. Criar a Automação (.yml)
-Crie um ficheiro no seguinte caminho: `.github/workflows/monitor.yml` e cole o código abaixo. *Neste exemplo, o robô está programado para rodar todos os dias às 08h00 (horário de Brasília).*
+Se desejar forçar uma execução manual:
+1. Vá na aba **Actions**.
+2. Selecione o workflow **MAST - Monitoramento Automatizado**.
+3. Clique em **Run workflow**.
 
-```yaml
-name: MAST - Monitoramento Automatizado de Sistemas e Tribunais
+---
 
-on:
-  schedule:
-    - cron: '0 11 * * 4' 
-  workflow_dispatch: 
+## 🚧 Desafios Superados na Engenharia de Dados
 
-jobs:
-  rodar-monitoramento:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
+Durante o desenvolvimento deste SOC automatizado, diversos desafios comuns em scraping/OSINT foram resolvidos:
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12' 
+* **O Problema do "Ruído Administrativo" (Falsos Positivos):** Tribunais publicam muito sobre RH, concursos e orçamento. Criamos uma *Blacklist* (`TERMOS_BLOQUEADOS`) aliada a Expressões Regulares (`\b`) que bloqueia sumariamente notícias não-técnicas.
+* **Rate Limits do Google (Erro 400):** Pesquisar em mais de 60 sites de uma vez gerava erro de "URL Too Large". A solução foi desenvolver uma lógica de paginação que divide os domínios em blocos de 20.
+* **Erros Ortográficos e Plurais (Falsos Negativos):** A busca por "ciberataque" ignorava "ciberataques". O motor foi aprimorado com regex flexível `(s|es)?` e a biblioteca `unicodedata` foi implementada para remover acentos (`manutencao` == `manutenção`) antes de qualquer validação.
 
-      - name: Instalar Dependências
-        run: |
-          python -m pip install --upgrade pip
-          pip install feedparser requests beautifulsoup4
+---
 
-      - name: Executar o Monitor e o Scraper
-        env:
-          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
-          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
-          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
-        run: |
-          python script.py
-          python scraper_oficial.py
+## 🧠 Customização
+
+Para adicionar novos termos de monitoramento cibernético, basta editar as listas no topo dos scripts:
+- `TERMOS_FORTES_TI` e `TERMOS_COMPOSTOS`: Gatilhos para acionar o envio de e-mails.
+- `TERMOS_BLOQUEADOS`: Palavras que reprovam e descartam a notícia instantaneamente.
+
+---
+
+*Desenvolvido por [mantiniDev](https://github.com/mantiniDev) - Focado em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas.*
