@@ -33,7 +33,7 @@ def gerar_corpos_email(noticias):
             link_oficial_html = ""
             for tribunal in TRIBUNAIS:
                 if tribunal['acronym'].lower() in titulo_lower:
-                    link_oficial_html = f"<br><a href='{tribunal['url']}' style='display: inline-block; margin-top: 8px; padding: 5px 10px; background-color: #e8f4f8; color: #2980b9; text-decoration: none; border-radius: 4px; font-size: 0.85em;'>🔍 Checar Status Oficial do {tribunal['acronym']}</a>"
+                    link_oficial_html = f"<br><a href='{tribunal['url']}' style='display: inline-block; margin-top: 8px; padding: 5px 10px; background-color: #e8f4f8; color: #2980b9; text-decoration: none; border-radius: 4px; font-size: 0.85em;'></a>"
                     break
 
             texto_puro += f"{i}. {noticia['titulo']}\n   Data: {data_formatada}\n   Link da Notícia: {noticia['link']}\n\n"
