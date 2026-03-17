@@ -44,7 +44,7 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
 def buscar_noticias_semanais():
     todas_noticias = []
     links_ja_coletados = set()
-    data_limite = datetime.now() - timedelta(days=5)
+    data_limite = datetime.now() - timedelta(days=2)
 
     lista_dominios = extrair_dominios_oficiais()
     tamanho_lote_dominios = 20
