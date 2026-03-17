@@ -10,14 +10,35 @@ O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisp
 
 ---
 
-## ✨ Arquitetura Atual: Motor de Busca Avançada (`script.py`)
+## ✨ Arquitetura Atual: Motor de Busca Avançada Modular
 
-Nesta versão atual, o MAST opera através de um poderoso motor de varredura baseado no ecossistema de indexação de notícias, projetado para altíssima precisão e zero ruído:
+Nesta versão atual, o MAST opera através de um poderoso motor de varredura baseado no ecossistema de indexação de notícias, projetado com uma arquitetura modular de software para altíssima precisão e facilidade de manutenção:
 
-- **Busca Focada e Dinâmica:** O script lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
+- **Busca Focada e Dinâmica:** O sistema lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
 - **Filtro de Malha Fina (Regex):** Um algoritmo passa as notícias por um "Raio-X" para garantir que contêm termos exatos de TI. Plurais são aceitos automaticamente, e palavras inseridas no meio de outras (ex: `SSO` dentro de `processo`) são ignoradas.
 - **Bloqueio de Falsos Positivos:** Notícias sobre RH, concursos, orçamento ou eleições (que costumam poluir os feeds do judiciário) são sumariamente descartadas por uma *Blacklist* interna.
 - **Smart Links Oficiais:** Ao detetar uma notícia sobre um tribunal específico, o robô cruza a informação com a base e anexa ao e-mail de alerta um link direto para a página de status/certidão oficial daquele tribunal.
+
+---
+
+## 📁 Estrutura do Projeto
+
+O código-fonte foi desenhado para escalabilidade corporativa, dividindo lógicas em módulos:
+
+```text
+noticias_alertas_2FA/
+│
+├── config/
+│   └── settings.py       # Constantes, URLs dos tribunais e listas de palavras-chave
+│
+├── core/
+│   ├── filter.py         # Lógica da malha fina (Regex, remoção de acentos e filtros)
+│   ├── scraper.py        # Lógica de extração de domínios, busca no Google e RSS
+│   └── notifier.py       # Geração de relatórios HTML e integração SMTP
+│
+├── main.py               # Orquestrador principal da aplicação
+└── .github/workflows/    # Pipeline de automação CI/CD
+```
 
 ---
 
@@ -53,11 +74,11 @@ Vá até a aba `Settings` > `Secrets and variables` > `Actions` > `New repositor
 - `EMAIL_DESTINATARIO`: O e-mail (ou e-mail de integração de canal do Slack/Teams) que receberá os alertas.
 
 ### 2. Pipeline Automatizada
-O projeto já conta com o arquivo `.github/workflows/monitor.yml`. Por padrão, o sistema rodará todos os dias automaticamente e enviará o relatório para os destinatários cadastrados.
+O projeto já conta com o fluxo de integração configurado. Por padrão, o sistema rodará todos os dias automaticamente chamando o orquestrador `main.py` com o `PYTHONPATH` ajustado.
 
 Se desejar forçar uma execução manual:
 1. Vá na aba **Actions**.
-2. Selecione o workflow **MAST - Monitoramento Automatizado**.
+2. Selecione o workflow de monitoramento.
 3. Clique em **Run workflow**.
 
 ---
@@ -74,10 +95,13 @@ Durante o desenvolvimento deste SOC automatizado, diversos desafios comuns em OS
 
 ## 🧠 Customização
 
-Para adicionar novos termos de monitoramento cibernético, basta editar as listas no topo do script principal (`script.py`):
+Graças à arquitetura modular, modificar os gatilhos de alerta é extremamente simples e não requer edição de lógica de código. 
+
+Para adicionar novos termos de monitoramento cibernético, basta editar as listas no arquivo **`config/settings.py`**:
 - `TERMOS_FORTES_TI` e `TERMOS_COMPOSTOS`: Gatilhos para acionar o envio de e-mails.
 - `TERMOS_BLOQUEADOS`: Palavras que reprovam e descartam a notícia instantaneamente.
 
 ---
 
 *Desenvolvido por [mantiniDev](https://github.com/mantiniDev) - Focado em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas.*
+```
