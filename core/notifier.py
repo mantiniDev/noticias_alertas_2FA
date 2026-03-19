@@ -48,7 +48,6 @@ def gerar_corpos_email(noticias):
                 <p style="margin: 0; font-size: 0.9em; color: #7f8c8d;">
                     📅 {data_formatada} &nbsp;|&nbsp; 📰 Fonte: {noticia['fonte']}
                 </p>
-                {link_oficial_html}
             </li>
             """
         html += "</ul>"
