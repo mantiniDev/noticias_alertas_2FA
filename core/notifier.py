@@ -5,6 +5,8 @@ from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from config.settings import TRIBUNAIS
+from email.mime.base import MIMEBase
+from email import encoders
 
 def gerar_corpos_email(noticias):
     hoje = datetime.now().strftime("%d/%m/%Y")
@@ -61,7 +63,7 @@ def gerar_corpos_email(noticias):
     """
     return texto_puro, html
 
-def enviar_email(texto_puro, html, total_noticias):
+def enviar_email(texto_puro, html, total_noticias, anexo_pdf=None):
     remetente = os.environ.get('EMAIL_REMETENTE')
     senha = os.environ.get('EMAIL_SENHA')
     destinatario = os.environ.get('EMAIL_DESTINATARIO')
@@ -78,6 +80,21 @@ def enviar_email(texto_puro, html, total_noticias):
     msg.attach(MIMEText(texto_puro, 'plain', 'utf-8'))
     msg.attach(MIMEText(html, 'html', 'utf-8'))
 
+    # --- LÓGICA DO ANEXO PDF ---
+    if anexo_pdf and os.path.exists(anexo_pdf):
+        with open(anexo_pdf, "rb") as attachment:
+            part = MIMEBase("application", "octet-stream")
+            part.set_payload(attachment.read())
+        
+        # Codifica em Base64 para poder trafegar pela internet
+        encoders.encode_base64(part)
+        part.add_header(
+            "Content-Disposition",
+            f"attachment; filename= Relatorio_MAST_Consultas.pdf",
+        )
+        msg.attach(part)
+    # ----------------------------
+
     try:
         print("Conectando ao servidor SMTP...")
         server = smtplib.SMTP('smtp.gmail.com', 587)
@@ -85,6 +102,6 @@ def enviar_email(texto_puro, html, total_noticias):
         server.login(remetente, senha)
         server.send_message(msg)
         server.quit()
-        print(f"E-mail HTML enviado com sucesso para {destinatario}! ({total_noticias} alertas)")
+        print(f"📧 E-mail HTML enviado com sucesso (com anexo)! ({total_noticias} alertas)")
     except Exception as e:
-        print(f"Erro ao enviar e-mail: {e}")
+        print(f"❌ Erro ao enviar e-mail: {e}")

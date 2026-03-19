@@ -269,5 +269,5 @@ TERMOS_BLOQUEADOS = [
     "estágio", "estagiário", "processo seletivo", "concurso", "vaga",
     "coptrel", "grêmio", "orçamentário", "orçamento", "feminicídio", "popruajud",
     "local de votação", "seções eleitorais", "mesária", "janela partidária",
-    "título de eleitor", "eleições", "custas judiciais", "gestão de pessoas", "semana da mulher"
+    "título de eleitor", "eleições", "custas judiciais", "gestão de pessoas", "semana da mulher", "semana da justiça", "semana do meio ambiente", "semana da diversidade", "semana do consumidor", "semana do trânsito", "semana da saúde", "semana do idoso", "semana da criança", "semana do adolescente", "semana do servidor público", "semana do advogado", "semana do estagiário", "semana do magistrado", "semana do promotor", "semana do defensor público", "semana do jurista", "semana do trabalhador", "semana do empreendedor", "semana do cidadão", "pix"
 ]
