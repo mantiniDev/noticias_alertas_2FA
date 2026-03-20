@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import time
 from config.settings import TRIBUNAIS, FONTES_OFICIAIS, TERMOS_ESPECIFICOS
 from core.filter import avaliar_noticia
+from core.database import verificar_status_noticia, salvar_auditoria
 
 
 def extrair_dominios_oficiais():
@@ -29,26 +30,40 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         if hasattr(entry, 'published_parsed'):
             data_publicacao = datetime.fromtimestamp(time.mktime(entry.published_parsed))
 
-            # O 'if' começa aqui
             if data_publicacao >= data_limite and entry.link not in links_ja_coletados:
-                # O bloco abaixo DEVE ter um recuo (Tab) em relação ao 'if'
+                link = entry.link
                 titulo = entry.title
                 resumo = entry.summary if hasattr(entry, 'summary') else ""
+                fonte = entry.source.title if hasattr(entry, 'source') else "Google News"
                 
-                # Desempacota as três respostas da nossa nova função
-                is_valid, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
+                # Montamos a estrutura base da notícia bruta
+                noticia_bruta = {
+                    'titulo': titulo,
+                    'resumo': resumo,
+                    'link': link,
+                    'data_obj': data_publicacao,
+                    'fonte': fonte
+                }
                 
-                if is_valid:
-                    todas_noticias.append({
-                        'titulo': titulo,
-                        'resumo': resumo,
-                        'link': entry.link,
-                        'data_obj': data_publicacao,
-                        'fonte': entry.source.title if hasattr(entry, 'source') else "Google News",
-                        'palavra_extraida': palavra_extraida,
-                        'termo_base': termo_base
-                    })
-                    links_ja_coletados.add(entry.link)
+                # 1. Checa no banco se a notícia já foi lida em execuções passadas
+                if verificar_status_noticia(link):
+                    salvar_auditoria(noticia_bruta, status='repetido')
+                    links_ja_coletados.add(link)
+                    continue
+                
+                # 2. Passa pelo nosso novo filtro inteligente
+                status, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
+                
+                # 3. Salva IMEDIATAMENTE nos bancos (Scraper e Filter) para a auditoria
+                salvar_auditoria(noticia_bruta, status, palavra_extraida, termo_base)
+                
+                # 4. Só vai para o e-mail/CSV se o status for realmente 'novo'
+                if status == 'novo':
+                    noticia_bruta['palavra_extraida'] = palavra_extraida
+                    noticia_bruta['termo_base'] = termo_base
+                    todas_noticias.append(noticia_bruta)
+                
+                links_ja_coletados.add(link)
 
 
 def buscar_noticias_semanais():
@@ -75,19 +90,15 @@ def buscar_noticias_semanais():
     lotes_siglas = [siglas[i:i + tamanho_lote]
                     for i in range(0, len(siglas), tamanho_lote)]
 
-    print(
-        f"Iniciando Fase 1: Varredura de Tribunais diretamente em {len(lista_dominios)} domínios oficiais...")
+    print(f"Iniciando Fase 1: Varredura de Tribunais diretamente em {len(lista_dominios)} domínios oficiais...")
     for lote_siglas in lotes_siglas:
-        query_tribunais = "(" + \
-            " OR ".join(f'"{sigla}"' for sigla in lote_siglas) + ")"
+        query_tribunais = "(" + " OR ".join(f'"{sigla}"' for sigla in lote_siglas) + ")"
         for lote_dom in lotes_dominios:
-            filtro_dominio = "(" + \
-                " OR ".join(f"site:{d}" for d in lote_dom) + ")"
+            filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
             query_final = f"{termos_base_google} AND {query_tribunais} AND {filtro_dominio}"
             query_codificada = urllib.parse.quote(query_final)
             url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
-            extrair_noticias_do_feed(
-                url_rss, data_limite, links_ja_coletados, todas_noticias)
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
             time.sleep(1.5)
 
     print("Iniciando Fase 2: Busca por frases exatas de TI e Segurança...")
@@ -98,13 +109,11 @@ def buscar_noticias_semanais():
     for lote_termos in lotes_termos:
         query_frases = "(" + " OR ".join(lote_termos) + ")"
         for lote_dom in lotes_dominios:
-            filtro_dominio = "(" + \
-                " OR ".join(f"site:{d}" for d in lote_dom) + ")"
+            filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
             query_final = f"{query_frases} AND {filtro_dominio}"
             query_codificada = urllib.parse.quote(query_final)
             url_rss = f"https://news.google.com/rss/search?q={query_codificada}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
-            extrair_noticias_do_feed(
-                url_rss, data_limite, links_ja_coletados, todas_noticias)
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
             time.sleep(1.5)
 
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)

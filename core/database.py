@@ -1,79 +1,118 @@
 import sqlite3
 import os
 
-# Força o Python a usar o caminho absoluto da pasta raiz do projeto
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DB_PATH = os.path.join(BASE_DIR, 'mast_dados.db')
 
 def init_db():
-    """Cria a tabela no banco de dados caso ela não exista."""
+    """Cria as tabelas do Scraper e do Filtro caso não existam."""
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+    
+    # Tabela 1: Dados Brutos do Scraper
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS historico_noticias (
+        CREATE TABLE IF NOT EXISTS banco_scraper (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             data_noticia TEXT,
             nome_fonte TEXT,
             titulo_noticia TEXT,
-            palavra_extraida TEXT,
+            palavra_scraper TEXT,
             termo_base TEXT,
             link TEXT UNIQUE
         )
     ''')
+
+    # Tabela 2: Auditoria e Status do Filtro
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS banco_filter (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            link TEXT UNIQUE,
+            palavra_filtrada TEXT,
+            termo_base TEXT,
+            status TEXT
+        )
+    ''')
+    
     conn.commit()
     conn.close()
 
-def salvar_noticias(noticias):
-    """Recebe a lista de notícias filtradas e salva no banco de dados."""
-    if not noticias:
-        return
+def verificar_status_noticia(link):
+    """Verifica se a notícia já existe no banco para classificá-la como 'repetido'."""
+    if not os.path.exists(DB_PATH):
+        return False
         
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    
-    novos_registros = 0
-    for noti in noticias:
-        try:
-            cursor.execute('''
-                INSERT INTO historico_noticias 
-                (data_noticia, nome_fonte, titulo_noticia, palavra_extraida, termo_base, link)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (
-                noti['data_obj'].strftime("%Y-%m-%d %H:%M:%S"),
-                noti.get('fonte', 'Desconhecida'),
-                noti.get('titulo', 'Sem Título'),
-                noti.get('palavra_extraida', 'Não mapeado'), # Proteção contra falhas
-                noti.get('termo_base', 'Não mapeado'),       # Proteção contra falhas
-                noti['link']
-            ))
-            novos_registros += 1
-        except sqlite3.IntegrityError:
-            # A notícia já existe no banco, então o script ignora silenciosamente
-            continue
-        except Exception as e:
-            print(f"❌ Erro ao tentar salvar uma notícia no banco: {e}")
-            
-    conn.commit()
+    cursor.execute("SELECT status FROM banco_filter WHERE link = ?", (link,))
+    resultado = cursor.fetchone()
     conn.close()
     
-    if novos_registros > 0:
-        print(f"🗄️ Banco de Dados: {novos_registros} novos registros arquivados com sucesso!")
-    else:
-        print("🗄️ Banco de Dados: Nenhuma notícia nova para arquivar (todas já existiam no banco).")
+    return resultado is not None # Retorna True se já existe (é repetida)
 
-def buscar_dados_para_pdf(limite=100):
-    """Busca as últimas N notícias do banco de dados para montar o relatório PDF."""
+def salvar_auditoria(noticia_bruta, status, palavra_filtrada=None, termo_base=None):
+    """
+    Salva a notícia nos dois bancos simultaneamente.
+    Status esperados: 'novo', 'repetido', 'bloqueado', 'irrelevante'
+    """
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    link = noticia_bruta['link']
+    
+    # 1. Salva no Banco Scraper (Dados Brutos)
+    try:
+        cursor.execute('''
+            INSERT INTO banco_scraper 
+            (data_noticia, nome_fonte, titulo_noticia, palavra_scraper, termo_base, link)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (
+            noticia_bruta['data_obj'].strftime("%Y-%m-%d %H:%M:%S"),
+            noticia_bruta.get('fonte', 'Desconhecida'),
+            noticia_bruta.get('titulo', 'Sem Título'),
+            palavra_filtrada if palavra_filtrada else 'N/A',
+            termo_base if termo_base else 'N/A',
+            link
+        ))
+    except sqlite3.IntegrityError:
+        pass # Se já existir no banco scraper, apenas ignoramos
+        
+    # 2. Salva no Banco Filter (Status)
+    try:
+        cursor.execute('''
+            INSERT INTO banco_filter 
+            (link, palavra_filtrada, termo_base, status)
+            VALUES (?, ?, ?, ?)
+        ''', (
+            link,
+            palavra_filtrada if palavra_filtrada else 'N/A',
+            termo_base if termo_base else 'N/A',
+            status
+        ))
+    except sqlite3.IntegrityError:
+        # Se for uma atualização de status, podemos dar um UPDATE
+        cursor.execute('''
+            UPDATE banco_filter 
+            SET status = ?, palavra_filtrada = ?, termo_base = ? 
+            WHERE link = ?
+        ''', (status, palavra_filtrada, termo_base, link))
+        
+    conn.commit()
+    conn.close()
+
+def buscar_dados_para_csv(limite=500): # Aumentei o limite padrão para 500 para ter uma boa amostragem
+    """Busca as notícias do banco de dados (Scraper + Filter) para montar o relatório CSV com o Status."""
     if not os.path.exists(DB_PATH):
         return []
         
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     try:
-        # Pega a data, fonte, palavra extraída, termo, título e link
+        # Faz um JOIN entre as tabelas e agora traz TUDO (incluindo o f.status)
         cursor.execute('''
-            SELECT data_noticia, nome_fonte, palavra_extraida, termo_base, titulo_noticia, link
-            FROM historico_noticias 
-            ORDER BY id DESC LIMIT ?
+            SELECT s.data_noticia, s.nome_fonte, f.palavra_filtrada, f.termo_base, s.titulo_noticia, s.link, f.status
+            FROM banco_scraper s
+            INNER JOIN banco_filter f ON s.link = f.link
+            ORDER BY s.id DESC LIMIT ?
         ''', (limite,))
         dados = cursor.fetchall()
         return dados

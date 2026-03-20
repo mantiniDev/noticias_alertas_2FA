@@ -62,7 +62,7 @@ def gerar_corpos_email(noticias):
     """
     return texto_puro, html
 
-def enviar_email(texto_puro, html, total_noticias, anexo_pdf=None):
+def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
     remetente = os.environ.get('EMAIL_REMETENTE')
     senha = os.environ.get('EMAIL_SENHA')
     destinatario = os.environ.get('EMAIL_DESTINATARIO')
@@ -79,17 +79,20 @@ def enviar_email(texto_puro, html, total_noticias, anexo_pdf=None):
     msg.attach(MIMEText(texto_puro, 'plain', 'utf-8'))
     msg.attach(MIMEText(html, 'html', 'utf-8'))
 
-    # --- LÓGICA DO ANEXO PDF ---
-    if anexo_pdf and os.path.exists(anexo_pdf):
-        with open(anexo_pdf, "rb") as attachment:
+   # --- LÓGICA DO ANEXO (Agora aceita CSV ou qualquer arquivo) ---
+    if anexo_path and os.path.exists(anexo_path):
+        with open(anexo_path, "rb") as attachment:
             part = MIMEBase("application", "octet-stream")
             part.set_payload(attachment.read())
         
         # Codifica em Base64 para poder trafegar pela internet
         encoders.encode_base64(part)
+        
+        # Pega o nome real do arquivo (ex: Relatorio_MAST.csv)
+        nome_arquivo = os.path.basename(anexo_path)
         part.add_header(
             "Content-Disposition",
-            f"attachment; filename= Relatorio_MAST_Consultas.pdf",
+            f"attachment; filename={nome_arquivo}",
         )
         msg.attach(part)
     # ----------------------------
