@@ -12,8 +12,8 @@ def gerar_csv_relatorio(dados):
     with open(caminho_csv, mode='w', newline='', encoding='utf-8-sig') as arquivo_csv:
         writer = csv.writer(arquivo_csv, delimiter=';') 
         
-        # CABEÇALHO ATUALIZADO COM A COLUNA 'STATUS' NO FINAL
-        writer.writerow(['Data da Noticia', 'Nome da Fonte', 'Palavra Filtrada', 'Termo Base', 'Titulo da Noticia', 'Link', 'Status'])
+        # CABEÇALHO AUDITORIA PROFUNDA
+        writer.writerow(['Data da Notícia', 'Nome da Fonte', 'Título', 'Status', 'Motivo da Decisão', 'Lista do Gatilho', 'Palavra Capturada', 'Link da Notícia'])
         
         if dados:
             for row in dados:

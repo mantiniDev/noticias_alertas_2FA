@@ -224,50 +224,70 @@ TERMOS_ESPECIFICOS = [
     '"2FA PJE"', '"MFA PJE"', '"dois fatores PJE"', '"duplo fator PJE"',
     '"duplo fator EPROC"', '"duplo fator ESAJ"', '"duplo fator PROJUDI"',
     '"PDPJ"', '"novo sistema tribunal"', '"mudança sistema tribunal"',
-    '"migração sistema tribunal"', '"pje indisponibilidade"', '"pdpj indisponibilidade"',
-    '"eproc indisponibilidade"', '"esaj indisponibilidade"',
-    '"portaria CNJ 140/2024"', '"tribunal pdpj"', '"tribunal authenticator"',
-    '"2FA se tornou obrigatória"', '"golpe do advogado"', '"migração TJPR EPROC"',
-    '"Jus.br"', '"instabilidade pje"', '"instabilidade pdpj"', '"instabilidade eproc"',
+    '"migração sistema tribunal"', '"portaria CNJ 140/2024"', '"tribunal pdpj"', '"tribunal authenticator"',
+    '"2FA se tornou obrigatória"', '"golpe do advogado"', '"migração TJPR EPROC"', '"instabilidade pje"', '"instabilidade pdpj"', '"instabilidade eproc"',
     '"instabilidade esaj"', '"instabilidade projudi"', '"instabilidade TRT"',
     '"instabilidade dos principais tribunais EPROC"', '"cronograma de expansão"', '"desativação do sistema"', '"substituição de interface"', '"homologação de versão"',
     '"ambiente de produção"', '"Plataforma Digital"', '"Codex"', '"Integração MNI"', '"API Unificada"',
     '"SRE (Site Reliability Engineering)"', '"TOTP"', '"WebAuthn"', '"FIDO2"', '"Habilitação de Segundo Fator"',
-    '"Single Sign-On (SSO)"', '"IDP (Identity Provider)"', '"Desafio Captcha"', '"hCaptcha"', '"reCAPTCHA Enterprise"', '"WAF (Web Application Firewall)"', '"Bloqueio de IP"', '"Bot Mitigation"', '"Cloudflare"', '"Akamai"',
-    '"instabilidade"', '"indisponibilidade"', '"fora do ar"', '"erro de acesso"', '"Erro 403 Forbidden"',
+    '"Single Sign-On (SSO)"', '"IDP (Identity Provider)"', '"Desafio Captcha"', '"hCaptcha"', '"reCAPTCHA Enterprise"', '"WAF (Web Application Firewall)"', '"Bloqueio de IP"', '"Bot Mitigation"', '"Cloudflare"', '"Akamai"', 
+    '"indisponibilidade pje"', '"indisponibilidade pdpj"', '"indisponibilidade eproc"', '"indisponibilidade esaj"', '"indisponibilidade projudi"', '"erro de acesso"', '"Erro 403 Forbidden"',
     '"Timeout de Conexão"', '"Manutenção Emergencial"', '"Latência de Banco de Dados"', '"Incident Response"',
     '"Release Notes"', '"Hotfix"', '"Depreciação de API"', '"Breaking Changes"', '"Vulnerabilidade de Segurança"',
     '"Patch de Correção"', '"Mudança de DNS"', '"Certificado SSL/TLS"', '"CDN"', '"Data Center"',
     '"Migração para Nuvem"', '"AWS"', '"Azure"', '"Comunicado de TI"', '"Edital de Licitação de Tecnologia"',
-    '"Ordem de Serviço SETIC"', '"Comitê Gestor"'
+    '"Ordem de Serviço SETIC"', 
 ]
 
 TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", 
     "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
     "sso", "single sign-on", "captcha", "waf", "token", "ciberataque", 
-    "instabilidade", "indisponibilidade", "golpe do advogado",
-    "portaria nº 140", "resolução nº 335", "certificado digital",
-    "ransomware", "ataque hacker", "manutenção programada", "fora do ar",
-    "descontinuidade", "lentidão"
+    "instabilidade no pje", "instabilidade no pdpj", "instabilidade no eproc", 
+    "indisponibilidade no pje", "indisponibilidade no pdpj", "indisponibilidade no eproc", 
+    "golpe do advogado", "portaria nº 140", "resolução nº 335", "certificado digital",
+    "ransomware", "ataque hacker"
 ]
 
 TERMOS_COMPOSTOS = [
-    ["mudança", "sistema"],
-    ["troca", "senha"],
-    ["renovação", "senha"],
-    ["redefinição", "senha"],
-    ["código", "autenticação"],
-    ["segurança", "digital"],
-    ["credencial", "acesso"],
-    ["código", "acesso"],
-    ["migração", "sistema"],
-    ["novo", "sistema"]
+   
+    ["fora do ar", "sistema"], ["fora do ar", "portal"], ["fora do ar", "tribunal"],
+    ["lentidão", "sistema"], ["lentidão", "portal"], ["lentidão", "processo eletrônico"],
+    ["instabilidade", "sistema"], ["instabilidade", "portal"],
+    ["indisponibilidade", "sistema"], ["indisponibilidade", "portal"],
+    ["manutenção", "sistema"], ["manutenção", "programada"],
+    
+    ["mudança", "sistema"], ["troca", "senha"], ["renovação", "senha"], ["redefinição", "senha"],
+    ["código", "autenticação"], ["segurança", "digital"], ["credencial", "acesso"], 
+    ["código", "acesso"], ["migração", "sistema"], ["novo", "sistema"],
+    ["indisponibilidade", "pje"], ["indisponibilidade", "pdpj"], ["indisponibilidade", "eproc"],
+    ["indisponibilidade", "esaj"], ["indisponibilidade", "projudi"]    
 ]
 
 TERMOS_BLOQUEADOS = [
-    "estágio", "estagiário", "processo seletivo", "concurso", "vaga",
-    "coptrel", "grêmio", "orçamentário", "orçamento", "feminicídio", "popruajud",
-    "local de votação", "seções eleitorais", "mesária", "janela partidária",
-    "título de eleitor", "eleições", "custas judiciais", "gestão de pessoas", "semana da mulher", "semana da justiça", "semana do meio ambiente", "semana da diversidade", "semana do consumidor", "semana do trânsito", "semana da saúde", "semana do idoso", "semana da criança", "semana do adolescente", "semana do servidor público", "semana do advogado", "semana do estagiário", "semana do magistrado", "semana do promotor", "semana do defensor público", "semana do jurista", "semana do trabalhador", "semana do empreendedor", "semana do cidadão", "pix"
+    # 1. Barreiras contra RH, Administração, Cursos e Inscrições (Resolve a Notícia 1)
+    "estágio", "estagiário", "processo seletivo", "concurso", "vaga", "inscrições", 
+    "inscrições deferidas", "curso", "coptrel", "grêmio", "orçamentário", "orçamento", 
+    "custas judiciais", "gestão de pessoas", "recursos humanos", "comissão de concurso", "comissão de estágio", "comissão de seleção", 
+    "comissão de treinamento", "comissão de desenvolvimento", "comissão de capacitação", "Comitê Gestor",
+    
+    # 2. Barreiras contra Outras Instituições não-Tribunais (Resolve Notícias 2, 3 e 4)
+    "receita federal", "receita", "irpf", "imposto de renda", "declaração", "malha fina", "restituição",
+    "pix", "banco", "nubank", "caixa econômica", "banco do brasil", "itaú", "bradesco", "santander",
+    "whatsapp", "instagram", "facebook", "twitter", "x", "meta",
+    
+    # 3. Barreiras contra Termos Jurídicos de Rotina (Resolve a Notícia 1)
+    "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará", "acordo", 
+    "conciliação", "mediação", "audiência de custódia", "habeas data",
+    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa",
+    
+    # 4. Barreiras contra Eleições
+    "local de votação", "seções eleitorais", "mesária", "janela partidária", "título de eleitor", "eleições",
+    
+    # 5. Barreiras contra Semanas Específicas
+    "semana da mulher", "semana da justiça", "semana do meio ambiente", "semana da diversidade", 
+    "semana do consumidor", "semana do trânsito", "semana da saúde", "semana do idoso", "semana da criança", 
+    "semana do adolescente", "semana do servidor público", "semana do advogado", "semana do estagiário", 
+    "semana do magistrado", "semana do promotor", "semana do defensor público", "semana do jurista", 
+    "semana do trabalhador", "semana do empreendedor", "semana do cidadão"
 ]

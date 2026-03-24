@@ -29,14 +29,13 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
     for entry in feed.entries:
         if hasattr(entry, 'published_parsed'):
             data_publicacao = datetime.fromtimestamp(time.mktime(entry.published_parsed))
-
+            # ... dentro da função extrair_noticias_do_feed ...
             if data_publicacao >= data_limite and entry.link not in links_ja_coletados:
                 link = entry.link
                 titulo = entry.title
                 resumo = entry.summary if hasattr(entry, 'summary') else ""
                 fonte = entry.source.title if hasattr(entry, 'source') else "Google News"
                 
-                # Montamos a estrutura base da notícia bruta
                 noticia_bruta = {
                     'titulo': titulo,
                     'resumo': resumo,
@@ -45,19 +44,18 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
                     'fonte': fonte
                 }
                 
-                # 1. Checa no banco se a notícia já foi lida em execuções passadas
+                # Se já existe no banco, arquiva como repetido e ignora
                 if verificar_status_noticia(link):
-                    salvar_auditoria(noticia_bruta, status='repetido')
+                    salvar_auditoria(noticia_bruta, 'repetido', 'Já Existente', 'N/A', 'N/A')
                     links_ja_coletados.add(link)
                     continue
                 
-                # 2. Passa pelo nosso novo filtro inteligente
-                status, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
+                # Desempacota as 4 variáveis do novo Filtro Profundo
+                status, motivo, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
                 
-                # 3. Salva IMEDIATAMENTE nos bancos (Scraper e Filter) para a auditoria
-                salvar_auditoria(noticia_bruta, status, palavra_extraida, termo_base)
+                # Salva a auditoria completa no banco
+                salvar_auditoria(noticia_bruta, status, motivo, palavra_extraida, termo_base)
                 
-                # 4. Só vai para o e-mail/CSV se o status for realmente 'novo'
                 if status == 'novo':
                     noticia_bruta['palavra_extraida'] = palavra_extraida
                     noticia_bruta['termo_base'] = termo_base
@@ -78,10 +76,17 @@ def buscar_noticias_semanais():
 
     termos_base_google = (
         '('
-        '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR '
-        '"indisponibilidade" OR "instabilidade" OR "manutenção" OR "fora do ar" OR "lentidão" OR '
-        '"2FA" OR "MFA" OR "SSO" OR "ciberataque" OR "hacker" OR "vulnerabilidade" OR "token" OR '
-        '"migração" OR "atualização" OR "versão" OR "API" OR "nuvem" OR "datacenter"'
+        # 1. Sistemas Judiciais Principais
+        '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR "Plataforma Digital" OR "js.br" OR "Jus.br" OR "Codex" OR "Integração MNI" OR "API Unificada" OR "Tribunal de Justiça" OR "Tribunal Regional Federal" OR "Tribunal Regional do Trabalho" OR "Tribunal de Contas" OR "Tribunal Militar" OR "Tribunal Eleitoral" OR "Conselho Nacional de Justiça" OR "CNJ"'
+        
+        # 2. Incidentes, Quedas e Ameaças
+        '"indisponibilidade" OR "instabilidade" OR "ciberataque" OR "ataque hacker" OR "vulnerabilidade" OR "erro de acesso" OR "incidente" OR '
+        
+        # 3. Autenticação e Segurança (MFA/Identity)
+        '"2FA" OR "MFA" OR "duplo fator" OR "SSO" OR "WebAuthn" OR "FIDO2" OR "Captcha" OR "WAF" OR "token" OR '
+        
+        # 4. Infraestrutura, Manutenção e Atualizações (DevOps/SRE)
+        '"datacenter" OR "nuvem" OR "manutenção emergencial" OR "hotfix" OR "patch" OR "release notes" OR "API"'
         ')'
     )
 

@@ -1,7 +1,7 @@
 # core/filter.py
 import re
 import unicodedata
-from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS
+from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS
 
 def remover_acentos(texto):
     if not texto: return ""
@@ -13,17 +13,29 @@ def texto_tem_bloqueio(texto_limpo):
         termo_limpo = remover_acentos(termo.lower())
         match = re.search(r'\b' + re.escape(termo_limpo) + r'(s)?\b', texto_limpo)
         if match:
-            return True, match.group(0) # Retorna True e a palavra que bloqueou
-    return False, None
+            # Retorna True, a palavra exata que bloqueou, e a palavra original da Blacklist
+            return True, match.group(0), termo 
+    return False, None, None
 
 def texto_tem_alerta(texto_limpo):
+    # 1. Filtro de Termos Específicos (Prioridade Máxima)
+    for termo in TERMOS_ESPECIFICOS:
+        # Removemos as aspas duplas da string para bater com o texto limpo da notícia
+        termo_limpo = remover_acentos(termo.replace('"', '').lower())
+        padrao = r'\b' + re.escape(termo_limpo) + r'(s|es)?\b'
+        match = re.search(padrao, texto_limpo)
+        if match:
+            return True, match.group(0), termo.replace('"', '') + " (Específico)"
+
+    # 2. Filtro de Termos Fortes
     for termo in TERMOS_FORTES_TI:
         termo_limpo = remover_acentos(termo.lower())
         padrao = r'\b' + re.escape(termo_limpo) + r'(s|es)?\b'
         match = re.search(padrao, texto_limpo)
         if match:
-            return True, match.group(0), termo
+            return True, match.group(0), termo + " (Forte)"
             
+    # 3. Filtro de Termos Compostos
     for par in TERMOS_COMPOSTOS:
         p1 = remover_acentos(par[0].lower())
         p2 = remover_acentos(par[1].lower())
@@ -35,38 +47,36 @@ def texto_tem_alerta(texto_limpo):
         if match1 and match2:
             palavra_ext = f"{match1.group(0)} + {match2.group(0)}"
             termo_bs = f"{par[0]} + {par[1]}"
-            return True, palavra_ext, termo_bs
+            return True, palavra_ext, termo_bs + " (Composto)"
             
     return False, None, None
 
 def avaliar_noticia(titulo, resumo):
     """
-    Avalia a notícia e retorna: (STATUS, palavra_extraida, motivo/termo_base)
-    Status possíveis: 'novo', 'bloqueado', 'irrelevante'
+    Retorna 4 itens: (STATUS, MOTIVO, PALAVRA_EXTRAIDA, TERMO_BASE)
     """
     titulo_puro = titulo.rsplit(' - ', 1)[0]
     titulo_formatado = remover_acentos(titulo_puro.lower())
     resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
 
-    # 1. Verifica se há bloqueio logo no Título
-    tem_bloqueio_tit, palavra_bloq_tit = texto_tem_bloqueio(titulo_formatado)
+    # 1. Bloqueio no Título
+    tem_bloqueio_tit, palavra_bloq_tit, termo_bloq_tit = texto_tem_bloqueio(titulo_formatado)
     if tem_bloqueio_tit:
-        return 'bloqueado', palavra_bloq_tit, 'Blacklist (Título)'
+        return 'bloqueado', 'Blacklist (Título)', palavra_bloq_tit, termo_bloq_tit
 
-    # 2. Verifica se é um Alerta de TI no Título
+    # 2. Alerta no Título
     tem_alerta_tit, palavra_tit, termo_tit = texto_tem_alerta(titulo_formatado)
     if tem_alerta_tit:
-        return 'novo', palavra_tit, termo_tit
+        return 'novo', 'Aprovado (Título)', palavra_tit, termo_tit
 
-    # 3. Verifica se há bloqueio escondido no Resumo
-    tem_bloqueio_res, palavra_bloq_res = texto_tem_bloqueio(resumo_formatado)
+    # 3. Bloqueio no Resumo
+    tem_bloqueio_res, palavra_bloq_res, termo_bloq_res = texto_tem_bloqueio(resumo_formatado)
     if tem_bloqueio_res:
-        return 'bloqueado', palavra_bloq_res, 'Blacklist (Resumo)'
+        return 'bloqueado', 'Blacklist (Resumo)', palavra_bloq_res, termo_bloq_res
 
-    # 4. Verifica se o Alerta está no Resumo
+    # 4. Alerta no Resumo
     tem_alerta_res, palavra_res, termo_res = texto_tem_alerta(resumo_formatado)
     if tem_alerta_res:
-        return 'novo', palavra_res, termo_res
+        return 'novo', 'Aprovado (Resumo)', palavra_res, termo_res
 
-    # Se não tem alerta e não tem bloqueio
-    return 'irrelevante', 'N/A', 'Sem Termos TI'
+    return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A'
