@@ -26,7 +26,7 @@ O MAST opera através de um motor de varredura modular baseado no ecossistema de
 ## 📁 Estrutura do Projeto
 
 ```
-noticias_alertas_2FA/
+ops-credenciais-mast/
 │
 ├── .github/
 │   └── workflows/          # Pipeline CI/CD com GitHub Actions (cron job diário)
