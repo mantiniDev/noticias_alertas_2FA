@@ -77,10 +77,10 @@ def buscar_noticias_semanais():
     termos_base_google = (
         '('
         # 1. Sistemas Judiciais Principais
-        '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR "Plataforma Digital" OR "js.br" OR "Jus.br" OR "Codex" OR "Integração MNI" OR "API Unificada" OR "Tribunal de Justiça" OR "Tribunal Regional Federal" OR "Tribunal Regional do Trabalho" OR "Tribunal de Contas" OR "Tribunal Militar" OR "Tribunal Eleitoral" OR "Conselho Nacional de Justiça" OR "CNJ"'
+        '"PJe" OR "eproc" OR "projudi" OR "e-SAJ" OR "PDPJ" OR "Plataforma Digital" OR "js.br" OR "Jus.br" OR "Codex" OR "Integração MNI" OR "API Unificada" OR "Tribunal de Justiça" OR "Tribunal Regional Federal" OR "Tribunal Regional do Trabalho" OR "Tribunal de Contas" OR "Tribunal Militar" OR "Tribunal Eleitoral" OR "Conselho Nacional de Justiça" OR "CNJ" OR "processo eletrônico" OR "sistema judicial" OR "sistema de justiça" OR "sistema de tribunais" OR "sistema de processos judiciais" OR "sistema de gestão judicial" OR "sistema de automação judicial" OR "sistema de tramitação processual" OR "sistema de acompanhamento processual" OR "sistema de consulta processual" OR "sistema de peticionamento eletrônico" OR "sistema de intimação eletrônica" OR "sistema de audiência virtual" OR "sistema de videoconferência judicial" OR "sistema de mediação online" OR "sistema de conciliação online" OR "sistema de arbitragem online" OR "sistema de jurisdição voluntária online" OR "sistema de execução online" OR "sistema de cumprimento online"'
         
         # 2. Incidentes, Quedas e Ameaças
-        '"indisponibilidade" OR "instabilidade" OR "ciberataque" OR "ataque hacker" OR "vulnerabilidade" OR "erro de acesso" OR "incidente" OR '
+        '"indisponibilidade" OR "instabilidade" OR "ciberataque" OR "ataque hacker" OR "vulnerabilidade" OR "erro de acesso" OR "incidente" OR "falso advogado" OR '
         
         # 3. Autenticação e Segurança (MFA/Identity)
         '"2FA" OR "MFA" OR "duplo fator" OR "SSO" OR "WebAuthn" OR "FIDO2" OR "Captcha" OR "WAF" OR "token" OR '
@@ -88,7 +88,7 @@ def buscar_noticias_semanais():
         # 4. Infraestrutura, Manutenção e Atualizações (DevOps/SRE)
         '"datacenter" OR "nuvem" OR "manutenção emergencial" OR "hotfix" OR "patch" OR "release notes" OR "API"'
         ')'
-    )
+    ) 
 
     siglas = [tribunal["acronym"] for tribunal in TRIBUNAIS]
     tamanho_lote = 10
