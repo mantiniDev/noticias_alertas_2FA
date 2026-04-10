@@ -83,4 +83,4 @@ def avaliar_noticia(titulo, resumo):
     if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
         return 'irrelevante', 'Arquivo (não é notícia)', 'N/A', 'N/A'
 
-    return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A'
+    return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A' 

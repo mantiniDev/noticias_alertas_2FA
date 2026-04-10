@@ -132,4 +132,4 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
         server.quit()
         print(f"📧 E-mail enviado com sucesso! ({total_noticias} alertas)")
     except Exception as e:
-        print(f"❌ Erro ao enviar e-mail: {e}")
+        print(f"❌ Erro ao enviar e-mail: {e}") 

@@ -33,4 +33,4 @@ if __name__ == "__main__":
 
         enviar_email(texto, html, len(noticias_filtradas), anexo_path=caminho_do_csv)
     else:
-        print("Nenhuma notícia nova encontrada. E-mail não enviado.")
+        print("Nenhuma notícia nova encontrada. E-mail não enviado.") 

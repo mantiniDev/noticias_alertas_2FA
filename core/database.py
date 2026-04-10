@@ -148,4 +148,4 @@ def buscar_dados_para_csv(limite=500, desde=None):
     except sqlite3.OperationalError:
         return []
     finally:
-        conn.close()
+        conn.close() 
