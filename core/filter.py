@@ -78,5 +78,9 @@ def avaliar_noticia(titulo, resumo):
     tem_alerta_res, palavra_res, termo_res = texto_tem_alerta(resumo_formatado)
     if tem_alerta_res:
         return 'novo', 'Aprovado (Resumo)', palavra_res, termo_res
+    
+    # 5. Rejeita titulos que são nomes de arquivos
+    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
+        return 'irrelevante', 'Arquivo (não é notícia)', 'N/A', 'N/A'
 
     return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A'
