@@ -2,6 +2,7 @@
 
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![GitHub Actions](https://img.shields.io/badge/Build-Automated-success.svg)](https://github.com/mantiniDev/noticias_alertas_2FA/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** construído em Python, focado em monitorar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
 
@@ -11,21 +12,33 @@ O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisp
 
 ## ✨ Como Funciona
 
-O MAST opera através de um motor de varredura modular baseado no ecossistema de indexação de notícias, com foco em alta precisão e baixa manutenção:
+O MAST opera em **cinco fases sequenciais** a cada execução:
 
-- **Busca Focada e Dinâmica:** Lê a base interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News em lotes, evitando bloqueios por rate limit (Erro 400).
-- **Filtro de Malha Fina (Regex):** Cada notícia passa por uma validação com expressões regulares que aceita plurais automaticamente e ignora palavras-chave de TI inseridas no meio de outras palavras (ex: `SSO` dentro de `processo`).
-- **Bloqueio de Falsos Positivos:** Uma *Blacklist* interna descarta notícias sobre RH, concursos, orçamento ou eleições — conteúdo que costuma poluir feeds do judiciário.
-- **Smart Links Oficiais:** Ao detectar uma notícia sobre um tribunal específico, o robô cruza com a base interna e anexa ao alerta um link direto para a página de status/certidão oficial daquele tribunal.
-- **Arquivamento em Banco de Dados:** Cada notícia processada é persistida em um banco SQLite local (`mast_dados.db`), garantindo rastreabilidade e deduplicação entre execuções.
-- **Relatório em CSV:** Ao fim de cada execução, um relatório `.csv` com os últimos 100 registros novos é gerado automaticamente e anexado ao e-mail de alerta.
+### Fase 1 — Mapeamento Dinâmico de Domínios
+Em vez de uma busca genérica, o script lê sua própria base de dados e extrai a URL raiz de cada um dos **60+ tribunais e portais cadastrados** (STF, STJ, TJs, TRFs, TRTs, TREs), gerando filtros de busca dinâmicos e sempre atualizados.
+
+### Fase 2 — Varredura de Rede Larga
+Cruza a sigla de cada tribunal com uma lista de palavras-chave de SRE e Segurança (`PJe`, `instabilidade`, `MFA`, `ciberataque`, `nuvem`, etc.), puxando qualquer notícia oficial dos **últimos 2 dias** via Google News RSS. As queries são agrupadas em lotes para evitar bloqueios por rate limit (Erro 400).
+
+### Fase 3 — Busca de Precisão (Frases Exatas)
+Realiza buscas superespecíficas com frases exatas (ex.: `"SRE (Site Reliability Engineering)"`, `"Desafio Captcha"`, `"WAF"`) para capturar comunicados técnicos que possam escapar da rede larga da Fase 2.
+
+### Fase 4 — Malha Fina (Motor de Inspeção)
+Para cada notícia encontrada, título e resumo passam por um "Raio-X" em três etapas:
+
+1. **Normalização Unicode** — remove acentos e converte para lowercase, uniformizando variações ortográficas (`manutencao` == `manutenção`).
+2. **Filtro de Bloqueio via Regex** — descarta termos de RH/administrativo como `estágio`, `eleição` e `orçamento`, exceto quando o título é explicitamente sobre TI.
+3. **Validação com Isolamento de Palavra** — usa `\b` (word boundary) para impedir que siglas de TI validem palavras maiores (ex.: `SSO` não valida `processo`). Plurais são aceitos automaticamente via regex `(s|es)?`.
+
+### Fase Final — Enriquecimento e Notificação
+Unifica os dados validados, gera um **relatório HTML responsivo** e um **anexo CSV** com os últimos 100 registros, enviados via SMTP diretamente ao canal do Slack. Credenciais gerenciadas via GitHub Secrets.
 
 ---
 
 ## 📁 Estrutura do Projeto
 
 ```
-ops-credenciais-mast/
+noticias_alertas_2FA/
 │
 ├── .github/
 │   └── workflows/          # Pipeline CI/CD com GitHub Actions (cron job diário)
@@ -146,6 +159,12 @@ Toda a lógica de filtragem é controlada por listas em **`config/settings.py`**
 - [ ] **Filtro Anti-Ruído Estrutural:** Uso do `BeautifulSoup` para ignorar menus de navegação (`<nav>`) e rodapés antes da análise de conteúdo.
 - [ ] **Integração Telegram:** Leitura de canais oficiais como *PJe News* (`t.me/s/pjenews`).
 - [ ] **Dashboard Web:** Painel de visualização histórica das notícias arquivadas no SQLite.
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob a [MIT License](https://opensource.org/licenses/MIT).
 
 ---
 
