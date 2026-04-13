@@ -11,25 +11,30 @@ from config.settings import TRIBUNAIS
 
 def gerar_corpos_email(noticias):
     hoje = datetime.now().strftime("%d/%m/%Y")
-    uma_semana_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
+    duas_dias_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
 
     texto_puro = (
         f"MAST - Monitoramento Automatizado de Sistemas e Tribunais "
-        f"({uma_semana_atras} a {hoje})\n\n"
+        f"({duas_dias_atras} a {hoje})\n\n"
     )
 
     html = f"""
     <html>
       <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
         <h2 style="color: #2c3e50;">Monitoramento Automatizado de Sistemas e Tribunais (MAST)</h2>
-        <p>Período: <strong>{uma_semana_atras}</strong> até <strong>{hoje} às 8H.</strong></p>
+        <p>Período: <strong>{duas_dias_atras}</strong> até <strong>{hoje} às 8H.</strong></p>
         <hr style="border: 1px solid #eee;">
     """
 
     if not noticias:
-        msg_vazia = "Nenhuma notícia 100% relevante de TI/Sistemas encontrada nos últimos 2 dias."
+        msg_vazia = "Nenhuma notícia relevante de TI/Sistemas encontrada nos últimos 2 dias."
         texto_puro += msg_vazia + "\n"
-        html += f"<p>{msg_vazia}</p>"
+        html += f"""
+        <p style="padding: 15px; background-color: #f9f9f9;
+                  border-left: 4px solid #bdc3c7; color: #7f8c8d;">
+            🔍 {msg_vazia}
+        </p>
+        """
     else:
         html += "<ul style='list-style-type: none; padding: 0;'>"
 
@@ -54,7 +59,7 @@ def gerar_corpos_email(noticias):
             texto_puro += (
                 f"{i}. {noticia['titulo']}\n"
                 f"   Data: {data_formatada}\n"
-                f"   Link da Notícia: {noticia['link']}\n\n"
+                f"   Link: {noticia['link']}\n\n"
             )
 
             html += f"""
@@ -92,7 +97,6 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
     senha        = os.environ.get('EMAIL_SENHA')
     destinatario = os.environ.get('EMAIL_DESTINATARIO')
 
-    # Valida as três credenciais antes de tentar qualquer coisa
     if not remetente or not senha or not destinatario:
         print(
             "Erro: EMAIL_REMETENTE, EMAIL_SENHA ou EMAIL_DESTINATARIO "
@@ -100,18 +104,26 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
         )
         return
 
+    # Assunto diferenciado quando não há alertas
+    if total_noticias == 0:
+        assunto = (
+            f"MAST - Sem alertas relevantes em "
+            f"{datetime.now().strftime('%d/%m/%Y')}"
+        )
+    else:
+        assunto = (
+            f"MAST - {total_noticias} alerta(s) encontrado(s) em "
+            f"{datetime.now().strftime('%d/%m/%Y')}"
+        )
+
     msg = MIMEMultipart('alternative')
     msg['From']    = remetente
     msg['To']      = destinatario
-    msg['Subject'] = (
-        f"Monitoramento Automatizado de Sistemas e Tribunais - "
-        f"{datetime.now().strftime('%d/%m/%Y')} ({total_noticias} alertas)"
-    )
+    msg['Subject'] = assunto
 
     msg.attach(MIMEText(texto_puro, 'plain', 'utf-8'))
     msg.attach(MIMEText(html, 'html', 'utf-8'))
 
-    # Anexo — tudo dentro do with para garantir que o arquivo é lido antes de fechar
     if anexo_path and os.path.exists(anexo_path):
         with open(anexo_path, "rb") as attachment:
             part = MIMEBase("application", "octet-stream")
@@ -132,4 +144,4 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
         server.quit()
         print(f"📧 E-mail enviado com sucesso! ({total_noticias} alertas)")
     except Exception as e:
-        print(f"❌ Erro ao enviar e-mail: {e}") 
+        print(f"❌ Erro ao enviar e-mail: {e}")
