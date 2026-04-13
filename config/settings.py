@@ -261,7 +261,7 @@ TERMOS_COMPOSTOS = [
     ["código", "autenticação"], ["segurança", "digital"], ["credencial", "acesso"], 
     ["código", "acesso"], ["migração", "sistema"], ["novo", "sistema"],
     ["indisponibilidade", "pje"], ["indisponibilidade", "pdpj"], ["indisponibilidade", "eproc"],
-    ["indisponibilidade", "esaj"], ["indisponibilidade", "projudi"] ["sistema", "no ar"],
+    ["indisponibilidade", "esaj"], ["indisponibilidade", "projudi"], ["sistema", "no ar"],
     ["sistemas", "no ar"],   
 ]
 
