@@ -1,107 +1,171 @@
-# 🏛️ MAST - Monitoramento Automatizado de Sistemas e Tribunais
+# 🏛️ MAST — Monitoramento Automatizado de Sistemas e Tribunais
 
 [![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
 [![GitHub Actions](https://img.shields.io/badge/Build-Automated-success.svg)](https://github.com/mantiniDev/noticias_alertas_2FA/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** construído em Python, focado em monitorizar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
+> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** construído em Python, focado em monitorar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
 
 O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisponibilidades de sistemas (PJe, eproc, e-SAJ, Projudi), ciberataques, implementação de MFA/2FA e novas portarias em mais de **60 tribunais brasileiros** (STF, STJ, TJs, TRFs, TRTs e TREs).
 
 ---
 
-## ✨ Arquitetura Atual: Motor de Busca Avançada Modular
+## ✨ Como Funciona
 
-Nesta versão atual, o MAST opera através de um poderoso motor de varredura baseado no ecossistema de indexação de notícias, projetado com uma arquitetura modular de software para altíssima precisão e facilidade de manutenção:
+O MAST opera em **cinco fases sequenciais** a cada execução:
 
-- **Busca Focada e Dinâmica:** O sistema lê a base de dados interna de tribunais, extrai os domínios (ex: `tjsp.jus.br`) e cria queries avançadas no Google News agrupadas em lotes, evitando bloqueios da API (Erro 400).
-- **Filtro de Malha Fina (Regex):** Um algoritmo passa as notícias por um "Raio-X" para garantir que contêm termos exatos de TI. Plurais são aceitos automaticamente, e palavras inseridas no meio de outras (ex: `SSO` dentro de `processo`) são ignoradas.
-- **Bloqueio de Falsos Positivos:** Notícias sobre RH, concursos, orçamento ou eleições (que costumam poluir os feeds do judiciário) são sumariamente descartadas por uma *Blacklist* interna.
-- **Smart Links Oficiais:** Ao detetar uma notícia sobre um tribunal específico, o robô cruza a informação com a base e anexa ao e-mail de alerta um link direto para a página de status/certidão oficial daquele tribunal.
+### Fase 1 — Mapeamento Dinâmico de Domínios
+Em vez de uma busca genérica, o script lê sua própria base de dados e extrai a URL raiz de cada um dos **60+ tribunais e portais cadastrados** (STF, STJ, TJs, TRFs, TRTs, TREs), gerando filtros de busca dinâmicos e sempre atualizados.
+
+### Fase 2 — Varredura de Rede Larga
+Cruza a sigla de cada tribunal com uma lista de palavras-chave de SRE e Segurança (`PJe`, `instabilidade`, `MFA`, `ciberataque`, `nuvem`, etc.), puxando qualquer notícia oficial dos **últimos 2 dias** via Google News RSS. As queries são agrupadas em lotes para evitar bloqueios por rate limit (Erro 400).
+
+### Fase 3 — Busca de Precisão (Frases Exatas)
+Realiza buscas superespecíficas com frases exatas (ex.: `"SRE (Site Reliability Engineering)"`, `"Desafio Captcha"`, `"WAF"`) para capturar comunicados técnicos que possam escapar da rede larga da Fase 2.
+
+### Fase 4 — Malha Fina (Motor de Inspeção)
+Para cada notícia encontrada, título e resumo passam por um "Raio-X" em três etapas:
+
+1. **Normalização Unicode** — remove acentos e converte para lowercase, uniformizando variações ortográficas (`manutencao` == `manutenção`).
+2. **Filtro de Bloqueio via Regex** — descarta termos de RH/administrativo como `estágio`, `eleição` e `orçamento`, exceto quando o título é explicitamente sobre TI.
+3. **Validação com Isolamento de Palavra** — usa `\b` (word boundary) para impedir que siglas de TI validem palavras maiores (ex.: `SSO` não valida `processo`). Plurais são aceitos automaticamente via regex `(s|es)?`.
+
+### Fase Final — Enriquecimento e Notificação
+Unifica os dados validados, gera um **relatório HTML responsivo** e um **anexo CSV** com os últimos 100 registros, enviados via SMTP diretamente ao canal do Slack. Credenciais gerenciadas via GitHub Secrets.
 
 ---
 
 ## 📁 Estrutura do Projeto
 
-O código-fonte foi desenhado para escalabilidade corporativa, dividindo lógicas em módulos:
-
-```text
+```
 noticias_alertas_2FA/
 │
+├── .github/
+│   └── workflows/          # Pipeline CI/CD com GitHub Actions (cron job diário)
+│
 ├── config/
-│   └── settings.py       # Constantes, URLs dos tribunais e listas de palavras-chave
+│   └── settings.py         # Constantes, URLs dos tribunais e listas de palavras-chave
 │
 ├── core/
-│   ├── filter.py         # Lógica da malha fina (Regex, remoção de acentos e filtros)
-│   ├── scraper.py        # Lógica de extração de domínios, busca no Google e RSS
-│   └── notifier.py       # Geração de relatórios HTML e integração SMTP
+│   ├── scraper.py          # Extração de domínios, busca no Google News e RSS
+│   ├── filter.py           # Lógica de malha fina (Regex, normalização de texto)
+│   ├── notifier.py         # Geração de relatórios HTML e integração SMTP
+│   ├── database.py         # Inicialização do SQLite e queries de leitura/escrita
+│   └── csv_generator.py    # Geração do relatório CSV anexado ao e-mail
 │
-├── main.py               # Orquestrador principal da aplicação
-└── .github/workflows/    # Pipeline de automação CI/CD
+├── main.py                 # Orquestrador principal da aplicação
+└── mast_dados.db           # Banco de dados SQLite (gerado automaticamente)
 ```
 
 ---
 
-## 🗺️ Roadmap: Próxima Versão (Arquitetura de Motor Duplo)
+## 🔄 Fluxo de Execução (`main.py`)
 
-Para a próxima grande atualização do MAST, já está em fase de testes a implementação do **Motor Secundário (Scraper Direto de Fontes Oficiais)**, que trabalhará em paralelo com o motor atual para criar um ecossistema 100% redundante:
-
-- **Varredura Direta (Passive-Aggressive):** Acessará ativamente o código-fonte de dezenas de páginas de indisponibilidade oficiais e painéis de aviso (sem depender de indexadores de busca).
-- **Filtro Anti-Ruído Estrutural:** Utilizará o `BeautifulSoup` para "apagar" virtualmente menus de navegação (`<nav>`) e rodapés antes da análise, garantindo que o alerta só dispare pelo conteúdo real da página.
-- **Integração Telegram:** Fará a leitura direta da interface web de canais oficiais como o *PJe News* (`t.me/s/pjenews`).
+```
+1. init_db()                    → Inicializa os bancos de dados (SQLite)
+2. buscar_noticias_semanais()   → Scraper busca, filtra e arquiva notícias; retorna apenas as "novas"
+3. buscar_dados_para_csv()      → Lê os últimos 100 registros novos do banco
+4. gerar_csv_relatorio()        → Gera o arquivo CSV de relatório
+5. gerar_corpos_email()         → Monta o corpo do e-mail em texto e HTML
+6. enviar_email()               → Envia o alerta com o CSV anexado
+```
 
 ---
 
-## 🛠️ Tecnologias Utilizadas (Versão Atual)
+## 🛠️ Tecnologias Utilizadas
 
-- **Python 3.12+**
-- **Feedparser** (Leitura, extração e parsing de RSS)
-- **Urllib & Urllib3** (Codificação de Queries de busca)
-- **Re & Unicodedata** (Expressões Regulares e normalização de texto para o filtro de malha fina)
-- **Smtplib & Email.mime** (Geração de relatórios responsivos em HTML e Plain Text)
-- **GitHub Actions** (Automação, CI/CD, Cron Jobs e ambiente Serverless)
+| Biblioteca | Uso |
+|---|---|
+| `feedparser` | Leitura, extração e parsing de RSS/Atom |
+| `urllib` / `urllib3` | Codificação de queries de busca |
+| `re` / `unicodedata` | Expressões regulares e normalização de texto (remoção de acentos) |
+| `sqlite3` | Persistência local de notícias e controle de duplicatas |
+| `smtplib` / `email.mime` | Geração de relatórios HTML responsivos e envio de e-mail |
+| `csv` | Geração de relatório tabular para anexo |
+| **GitHub Actions** | Automação CI/CD, cron jobs e ambiente serverless gratuito |
+
+**Python 3.12+** é necessário.
 
 ---
 
 ## 🚀 Como Configurar e Rodar
 
-O projeto foi desenhado para rodar nativamente e sem custos no **GitHub Actions**.
+O projeto foi desenhado para rodar nativamente e **sem custos** no **GitHub Actions**.
 
-### 1. Preparar as Variáveis de Ambiente (Secrets)
-Vá até a aba `Settings` > `Secrets and variables` > `Actions` > `New repository secret` no seu repositório e adicione:
-- `EMAIL_REMETENTE`: O e-mail que vai enviar os relatórios automatizados.
-- `EMAIL_SENHA`: A App Password (Senha de Aplicativo) do seu provedor de e-mail.
-- `EMAIL_DESTINATARIO`: O e-mail (ou e-mail de integração de canal do Slack/Teams) que receberá os alertas.
+### 1. Configurar os Secrets do Repositório
 
-### 2. Pipeline Automatizada
-O projeto já conta com o fluxo de integração configurado. Por padrão, o sistema rodará todos os dias automaticamente chamando o orquestrador `main.py` com o `PYTHONPATH` ajustado.
+Vá em `Settings` → `Secrets and variables` → `Actions` → `New repository secret` e adicione:
 
-Se desejar forçar uma execução manual:
-1. Vá na aba **Actions**.
+| Secret | Descrição |
+|---|---|
+| `EMAIL_REMETENTE` | E-mail que enviará os relatórios automatizados |
+| `EMAIL_SENHA` | App Password (Senha de Aplicativo) do provedor de e-mail |
+| `EMAIL_DESTINATARIO` | E-mail (ou endereço de integração Slack/Teams) que receberá os alertas |
+
+> **Dica:** Para Gmail, gere uma [Senha de App](https://myaccount.google.com/apppasswords) com autenticação de dois fatores ativada.
+
+### 2. Execução Automática
+
+O workflow já está configurado para rodar diariamente via cron job, chamando o `main.py` com o `PYTHONPATH` ajustado. Nenhuma configuração adicional é necessária após os secrets estarem definidos.
+
+### 3. Execução Manual
+
+1. Vá na aba **Actions** do repositório.
 2. Selecione o workflow de monitoramento.
 3. Clique em **Run workflow**.
 
----
+### 4. Execução Local (opcional)
 
-## 🚧 Desafios Superados na Engenharia de Dados
+```bash
+git clone https://github.com/mantiniDev/noticias_alertas_2FA.git
+cd noticias_alertas_2FA
 
-Durante o desenvolvimento deste SOC automatizado, diversos desafios comuns em OSINT foram resolvidos:
+pip install feedparser
 
-* **O Problema do "Ruído Administrativo":** Tribunais publicam muito sobre administração. Criamos uma *Blacklist* (`TERMOS_BLOQUEADOS`) aliada a Expressões Regulares (`\b`) que bloqueia sumariamente notícias não-técnicas.
-* **Rate Limits de Buscadores (Erro 400):** Pesquisar em mais de 60 sites de uma vez gerava erro de "URL Too Large". A solução foi desenvolver uma lógica de paginação que divide os domínios em pequenos blocos seguros.
-* **Erros Ortográficos e Plurais:** A busca por "ciberataque" ignorava "ciberataques". O motor foi aprimorado com regex flexível `(s|es)?` e a biblioteca `unicodedata` foi implementada para remover acentos (`manutencao` == `manutenção`) antes da validação.
+# Defina as variáveis de ambiente
+export EMAIL_REMETENTE="seu@email.com"
+export EMAIL_SENHA="sua_app_password"
+export EMAIL_DESTINATARIO="destino@email.com"
+
+python main.py
+```
 
 ---
 
 ## 🧠 Customização
 
-Graças à arquitetura modular, modificar os gatilhos de alerta é extremamente simples e não requer edição de lógica de código. 
+Toda a lógica de filtragem é controlada por listas em **`config/settings.py`** — sem necessidade de alterar código.
 
-Para adicionar novos termos de monitoramento cibernético, basta editar as listas no arquivo **`config/settings.py`**:
-- `TERMOS_FORTES_TI` e `TERMOS_COMPOSTOS`: Gatilhos para acionar o envio de e-mails.
-- `TERMOS_BLOQUEADOS`: Palavras que reprovam e descartam a notícia instantaneamente.
+| Lista | Função |
+|---|---|
+| `TERMOS_FORTES_TI` | Termos simples que acionam o alerta (ex: `MFA`, `PJe`, `indisponível`) |
+| `TERMOS_COMPOSTOS` | Expressões compostas que acionam o alerta (ex: `autenticação em dois fatores`) |
+| `TERMOS_BLOQUEADOS` | Palavras que descartam a notícia instantaneamente (ex: `concurso`, `eleição`) |
 
 ---
 
-*Desenvolvido por [mantiniDev](https://github.com/mantiniDev) - Focado em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas.*
-```
+## 🚧 Desafios de Engenharia Resolvidos
+
+- **Ruído Administrativo:** Tribunais publicam muito conteúdo não-técnico. A `TERMOS_BLOQUEADOS` aliada a regex com `\b` (word boundary) bloqueia notícias fora do escopo de TI.
+- **Rate Limits (Erro 400):** Pesquisar mais de 60 domínios simultaneamente gera URLs muito longas. O scraper divide os domínios em blocos menores para evitar o erro.
+- **Plurais e Acentos:** O motor usa regex flexível com `(s|es)?` e a biblioteca `unicodedata` para normalizar acentos antes da validação (`manutencao` == `manutenção`).
+- **Deduplicação:** O banco SQLite registra cada notícia já vista, garantindo que o mesmo item não gere alertas repetidos em execuções futuras.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] **Motor Secundário (Scraper Direto):** Varredura direta de páginas de indisponibilidade oficiais e painéis de aviso, sem depender de indexadores de busca.
+- [ ] **Filtro Anti-Ruído Estrutural:** Uso do `BeautifulSoup` para ignorar menus de navegação (`<nav>`) e rodapés antes da análise de conteúdo.
+- [ ] **Integração Telegram:** Leitura de canais oficiais como *PJe News* (`t.me/s/pjenews`).
+- [ ] **Dashboard Web:** Painel de visualização histórica das notícias arquivadas no SQLite.
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob a [MIT License](https://opensource.org/licenses/MIT).
+
+---
+
+*[Jusbrasil](https://www.jusbrasil.com.br) — desenvolvido por [mantiniDev](https://github.com/mantiniDev) · Focado em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas.*
