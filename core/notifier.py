@@ -6,6 +6,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
+from email.utils import encode_rfc2231
 from config.settings import TRIBUNAIS
 
 
@@ -42,7 +43,6 @@ def gerar_corpos_email(noticias):
             data_formatada = noticia['data_obj'].strftime("%d/%m/%Y às %H:%M")
             titulo_lower = noticia['titulo'].lower()
 
-            # Busca o link oficial do tribunal correspondente
             link_oficial_html = ""
             for tribunal in TRIBUNAIS:
                 if tribunal['acronym'].lower() in titulo_lower:
@@ -103,7 +103,6 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
         )
         return
 
-    # Assunto diferenciado quando não há alertas
     if total_noticias == 0:
         assunto = (
             f"MAST - Sem alertas relevantes em "
@@ -128,15 +127,19 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
             part = MIMEBase("application", "octet-stream")
             part.set_payload(attachment.read())
             encoders.encode_base64(part)
+            # CORRIGIDO: encode_rfc2231 resolve nomes de arquivo com acentos (ex: Histórico.csv)
+            nome_arquivo = os.path.basename(anexo_path)
             part.add_header(
                 "Content-Disposition",
-                f"attachment; filename={os.path.basename(anexo_path)}",
+                "attachment",
+                filename=encode_rfc2231(nome_arquivo, charset='utf-8')
             )
         msg.attach(part)
 
     try:
         print("Conectando ao servidor SMTP...")
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        # CORRIGIDO: timeout=30 evita o workflow ficar pendurado se o Gmail não responder
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=30)
         server.starttls()
         server.login(remetente, senha)
         server.send_message(msg)
