@@ -30,17 +30,8 @@ jobs:
           EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
           PYTHONPATH: .
         run: |
-          # CORRIGIDO: set -e garante que o workflow para se main.py falhar
           set -e
           python main.py
-
-      - name: Commit e Push do Banco de Dados
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add mast_dados.db
-          git commit -m "🗄️ Auto-update do banco de dados (MAST)" || echo "Nenhuma mudança no banco de dados."
-          git push
           
 
           
