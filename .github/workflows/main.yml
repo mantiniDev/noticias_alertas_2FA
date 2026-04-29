@@ -1,8 +1,8 @@
 name: MAST - Monitoramento Automatizado de Sistemas e Tribunais
 
-"on":
+on:
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '30 11 * * *'
   workflow_dispatch:
 
 jobs:
@@ -16,23 +16,24 @@ jobs:
       - name: Configurar o Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12' 
+          python-version: '3.12'
 
       - name: Instalar Dependências
         run: |
           python -m pip install --upgrade pip
-          pip install feedparser requests beautifulsoup4
-          pip install feedparser reportlab
+          pip install -r requirements.txt
 
       - name: Executar o Monitoramento
         env:
           EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
           EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
-          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_SLACK_DESTINATARIO}}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
           PYTHONPATH: .
         run: |
+          # CORRIGIDO: set -e garante que o workflow para se main.py falhar
+          set -e
           python main.py
-      
+
       - name: Commit e Push do Banco de Dados
         run: |
           git config --global user.name 'github-actions[bot]'

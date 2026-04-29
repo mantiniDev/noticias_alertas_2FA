@@ -2,7 +2,6 @@
 import sqlite3
 import os
 
-# Força o Python a voltar uma pasta (..) para encontrar a raiz do projeto
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DB_PATH = os.path.join(BASE_DIR, 'mast_dados.db')
 
@@ -18,9 +17,9 @@ def ler_dados(limite=20):
     cursor = conn.cursor()
 
     try:
-        # Busca os registros fazendo o JOIN entre a tabela bruta e a tabela de filtro
+        # CORRIGIDO: palavra_filtrada → palavra_encontrada (nome real da coluna em banco_filter)
         cursor.execute('''
-            SELECT s.id, s.data_noticia, s.nome_fonte, f.palavra_filtrada, f.termo_base, s.titulo_noticia, f.status
+            SELECT s.id, s.data_noticia, s.nome_fonte, f.palavra_encontrada, f.termo_base, s.titulo_noticia, f.status
             FROM banco_scraper s
             INNER JOIN banco_filter f ON s.link = f.link
             ORDER BY s.id DESC LIMIT ?
@@ -39,7 +38,6 @@ def ler_dados(limite=20):
         for reg in registros:
             id_reg, data, fonte, palavra, termo, titulo, status = reg
             
-            # Formatação visual do Status para o terminal
             if status == 'novo':
                 cor_status = "🟢 NOVO"
             elif status == 'repetido':
@@ -54,7 +52,6 @@ def ler_dados(limite=20):
             print(f"     📰 TÍTULO: {titulo}")
             print("-" * 100)
 
-        # Mostra o total absoluto de registros já salvos na história
         cursor.execute('SELECT COUNT(*) FROM banco_scraper')
         total = cursor.fetchone()[0]
         print(f"\n📌 TOTAL DE NOTÍCIAS ARQUIVADAS NO BANCO ATÉ HOJE: {total}\n")
