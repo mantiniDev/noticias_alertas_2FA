@@ -2,7 +2,7 @@ name: MAST - Monitoramento Automatizado de Sistemas e Tribunais
 
 on:
   schedule:
-    - cron: '30 11 * * *'
+    - cron: '00 11 * * *'
   workflow_dispatch:
 
 jobs:
@@ -11,10 +11,10 @@ jobs:
 
     steps:
       - name: Fazer o checkout do código
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Configurar o Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.12'
 
@@ -27,20 +27,11 @@ jobs:
         env:
           EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
           EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
-          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+          EMAIL_SLACK_DESTINATARIO: ${{ secrets.EMAIL_SLACK_DESTINATARIO }}
           PYTHONPATH: .
         run: |
-          # CORRIGIDO: set -e garante que o workflow para se main.py falhar
           set -e
           python main.py
-
-      - name: Commit e Push do Banco de Dados
-        run: |
-          git config --global user.name 'github-actions[bot]'
-          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          git add mast_dados.db
-          git commit -m "🗄️ Auto-update do banco de dados (MAST)" || echo "Nenhuma mudança no banco de dados."
-          git push
           
 
           

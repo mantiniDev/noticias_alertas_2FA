@@ -94,7 +94,7 @@ def gerar_corpos_email(noticias):
 def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
     remetente    = os.environ.get('EMAIL_REMETENTE')
     senha        = os.environ.get('EMAIL_SENHA')
-    destinatario = os.environ.get('EMAIL_DESTINATARIO')
+    destinatario = os.environ.get('EMAIL_SLACK_DESTINATARIO')
 
     if not remetente or not senha or not destinatario:
         print(
