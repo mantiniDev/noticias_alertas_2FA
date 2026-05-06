@@ -1,3 +1,6 @@
+ · PY
+Copiar
+
 # core/filter.py
 import re
 import unicodedata
@@ -59,6 +62,43 @@ def avaliar_noticia(titulo, resumo):
     titulo_formatado = remover_acentos(titulo_puro.lower())
     resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
 
+    # 0a. Rejeita nomes de arquivos físicos no título
+    # Ex: "ETP - Aquisição de Software.docx - Portal TJMG"
+    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
+        return 'irrelevante', 'Arquivo (nao e noticia)', 'N/A', 'N/A'
+
+    # 0b. Rejeita documentação técnica com prefixo explícito no título
+    # Ex: "Manual – Cadastro de Entidade de Remessa - PJe"
+    PREFIXOS_DOCUMENTACAO = [
+        'manual \u2013', 'manual -', 'manual:', 'manual ',
+        'tutorial \u2013', 'tutorial -', 'tutorial ',
+        'guia \u2013', 'guia -', 'guia ',
+        'faq \u2013', 'faq -',
+        'etp -', 'etp \u2013',           # Estudo Técnico Preliminar
+        'tr \u2013', 'tr -',             # Termo de Referência
+    ]
+    for prefixo in PREFIXOS_DOCUMENTACAO:
+        if titulo_formatado.startswith(prefixo):
+            return 'irrelevante', 'Documentacao (nao e noticia)', 'N/A', 'N/A'
+
+    # 0c. Rejeita páginas genéricas de sistemas indexadas como notícia pelo Google News
+    # Ex: "PJe - tjrj.pje.jus.br" | "Tribunal Regional do Trabalho da 13ª Região - PJe"
+    # Ex: "Comunicações Processuais - PJe" | "Tribunal de Justiça do Estado de X - PJe"
+    PADROES_PAGINA_GENERICA = [
+        r'^pje\s*[-\u2013]\s*[\w.-]+$',                        # "PJe - tjrj.pje.jus.br"
+        r'^(tribunal|trt|tjr?[a-z]+).{3,60}\s*[-\u2013]\s*pje$',  # "Tribunal X - PJe"
+        r'^comunicacoes processuais\s*[-\u2013]\s*pje$',       # "Comunicações Processuais - PJe"
+        # r'^noticias\s*[-\u2013]\s*[\w.-]+$',                   # "Notícias - tjpr.jus.br"
+        r'^clippings\s*[-\u2013]\s*[\w.-]+$',                  # "Clippings - tjpr.jus.br"
+        r'^materiais relevantes\s*[-\u2013]\s*[\w.-]+$',       # "Materiais relevantes - trf3.jus.br"
+        r'^atos do poder .+$',                                  # "Atos do Poder Legislativo - TSE"
+        r'^diario da justica .+$',                              # "Diário da Justiça Eletrônico - TSE"
+        r'^gmf\s*[-\u2013]',                                    # "GMF - Sistemas Carcerário..."
+    ]
+    for padrao in PADROES_PAGINA_GENERICA:
+        if re.match(padrao, titulo_formatado):
+            return 'irrelevante', 'Pagina generica (nao e noticia)', 'N/A', 'N/A'
+
     # 1. Bloqueio no Título
     tem_bloqueio_tit, palavra_bloq_tit, termo_bloq_tit = texto_tem_bloqueio(titulo_formatado)
     if tem_bloqueio_tit:
@@ -78,9 +118,5 @@ def avaliar_noticia(titulo, resumo):
     tem_alerta_res, palavra_res, termo_res = texto_tem_alerta(resumo_formatado)
     if tem_alerta_res:
         return 'novo', 'Aprovado (Resumo)', palavra_res, termo_res
-    
-    # 5. Rejeita titulos que são nomes de arquivos
-    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
-        return 'irrelevante', 'Arquivo (não é notícia)', 'N/A', 'N/A'
 
-    return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A' 
+    return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A'
