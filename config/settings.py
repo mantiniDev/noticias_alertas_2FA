@@ -280,7 +280,7 @@ TERMOS_BLOQUEADOS = [
     # 3. Barreiras contra Termos Jurídicos de Rotina (Resolve a Notícia 1)
     "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará", "acordo", 
     "conciliação", "mediação", "audiência de custódia", "habeas data",
-    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa",
+    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa", "consulta de processos", "consulta processual", "certidão de objeto e pé", "certidão de inteiro teor", "certidão de antecedentes criminais", "certidão de distribuição", "certidão de protesto", "consulta de processos", "consulta processual", "jurisprudencia", "acórdão", "ementa",
     
     # 4. Barreiras contra Eleições
     "local de votação", "seções eleitorais", "mesária", "janela partidária", "título de eleitor", "eleições",

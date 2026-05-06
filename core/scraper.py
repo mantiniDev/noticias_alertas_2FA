@@ -105,8 +105,8 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
                 # Data corrompida: assume agora para não perder a entrada
                 data_publicacao = datetime.now()
         else:
-            # Sem campo de data: o filtro when:2d no Google já garante recência
-            data_publicacao = datetime.now()
+            # Sem data confiável → descarta a entrada
+            continue
 
         # ── Filtro de data local (segunda barreira, redundante mas seguro) ──
         if data_publicacao < data_limite:
