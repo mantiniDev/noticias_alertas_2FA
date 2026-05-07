@@ -1,6 +1,3 @@
- · PY
-Copiar
-
 # core/filter.py
 import re
 import unicodedata
