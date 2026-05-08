@@ -242,7 +242,7 @@ TERMOS_ESPECIFICOS = [
 TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", 
     "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
-    "sso", "single sign-on", "captcha", "waf", "token", "ciberataque", 
+    "sso", "single sign-on", "captcha", "waf", "ciberataque", 
     "instabilidade no pje", "instabilidade no pdpj", "instabilidade no eproc", 
     "indisponibilidade no pje", "indisponibilidade no pdpj", "indisponibilidade no eproc", 
     "golpe do advogado", "portaria nº 140", "resolução nº 335", "certificado digital",
@@ -251,7 +251,7 @@ TERMOS_FORTES_TI = [
 
 TERMOS_COMPOSTOS = [
    
-    ["fora do ar", "sistema"], ["fora do ar", "portal"], ["fora do ar", "tribunal"],
+     ["fora do ar", "sistema"], ["fora do ar", "portal"], ["fora do ar", "tribunal"],
     ["lentidão", "sistema"], ["lentidão", "portal"], ["lentidão", "processo eletrônico"],
     ["instabilidade", "sistema"], ["instabilidade", "portal"],
     ["indisponibilidade", "sistema"], ["indisponibilidade", "portal"],
@@ -262,11 +262,15 @@ TERMOS_COMPOSTOS = [
     ["código", "acesso"], ["migração", "sistema"], ["novo", "sistema"],
     ["indisponibilidade", "pje"], ["indisponibilidade", "pdpj"], ["indisponibilidade", "eproc"],
     ["indisponibilidade", "esaj"], ["indisponibilidade", "projudi"], ["sistema", "no ar"],
-    ["sistemas", "no ar"],   
+    ["sistemas", "no ar"],
+
+    ["token", "pje"], ["token", "eproc"], ["token", "tribunal"],
+    ["token", "autenticação"], ["token", "certificado digital"], ["token", "acesso"],
+    ["token", "sistema judicial"],   
 ]
 
 TERMOS_BLOQUEADOS = [
-    # 1. Barreiras contra RH, Administração, Cursos e Inscrições (Resolve a Notícia 1)
+   # 1. Barreiras contra RH, Administração, Cursos e Inscrições (Resolve a Notícia 1)
     "estágio", "estagiário", "processo seletivo", "concurso", "vaga", "inscrições", 
     "inscrições deferidas", "curso", "coptrel", "grêmio", "orçamentário", "orçamento", 
     "custas judiciais", "gestão de pessoas", "recursos humanos", "comissão de concurso", "comissão de estágio", "comissão de seleção", 
@@ -278,7 +282,10 @@ TERMOS_BLOQUEADOS = [
     "whatsapp", "instagram", "facebook", "twitter", "x", "meta",
     
     # 3. Barreiras contra Termos Jurídicos de Rotina (Resolve a Notícia 1)
-    "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará", "acordo", 
+    "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará",
+    # "acordo" sozinho foi removido — era genérico demais e poderia suprimir "acordo de migração de sistemas".
+    # Substituído por frases compostas específicas:
+    "acordo de cooperação técnica", "acordo trabalhista", "acordo coletivo",
     "conciliação", "mediação", "audiência de custódia", "habeas data",
     "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa", "consulta de processos", "consulta processual", "certidão de objeto e pé", "certidão de inteiro teor", "certidão de antecedentes criminais", "certidão de distribuição", "certidão de protesto", "consulta de processos", "consulta processual", "jurisprudencia", "acórdão", "ementa",
     

@@ -3,19 +3,24 @@ import re
 import unicodedata
 from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS
 
+
 def remover_acentos(texto):
-    if not texto: return ""
+    if not texto:
+        return ""
     nfkd = unicodedata.normalize('NFKD', texto)
     return u"".join([c for c in nfkd if not unicodedata.combining(c)])
+
 
 def texto_tem_bloqueio(texto_limpo):
     for termo in TERMOS_BLOQUEADOS:
         termo_limpo = remover_acentos(termo.lower())
-        match = re.search(r'\b' + re.escape(termo_limpo) + r'(s)?\b', texto_limpo)
+        match = re.search(r'\b' + re.escape(termo_limpo) +
+                          r'(s)?\b', texto_limpo)
         if match:
             # Retorna True, a palavra exata que bloqueou, e a palavra original da Blacklist
-            return True, match.group(0), termo 
+            return True, match.group(0), termo
     return False, None, None
+
 
 def texto_tem_alerta(texto_limpo):
     # 1. Filtro de Termos Específicos (Prioridade Máxima)
@@ -34,7 +39,7 @@ def texto_tem_alerta(texto_limpo):
         match = re.search(padrao, texto_limpo)
         if match:
             return True, match.group(0), termo + " (Forte)"
-            
+
     # 3. Filtro de Termos Compostos
     for par in TERMOS_COMPOSTOS:
         p1 = remover_acentos(par[0].lower())
@@ -43,13 +48,14 @@ def texto_tem_alerta(texto_limpo):
         padrao2 = r'\b' + re.escape(p2) + r'(s|es)?\b'
         match1 = re.search(padrao1, texto_limpo)
         match2 = re.search(padrao2, texto_limpo)
-        
+
         if match1 and match2:
             palavra_ext = f"{match1.group(0)} + {match2.group(0)}"
             termo_bs = f"{par[0]} + {par[1]}"
             return True, palavra_ext, termo_bs + " (Composto)"
-            
+
     return False, None, None
+
 
 def avaliar_noticia(titulo, resumo):
     """
@@ -59,45 +65,17 @@ def avaliar_noticia(titulo, resumo):
     titulo_formatado = remover_acentos(titulo_puro.lower())
     resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
 
-    # 0a. Rejeita nomes de arquivos físicos no título
-    # Ex: "ETP - Aquisição de Software.docx - Portal TJMG"
-    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
-        return 'irrelevante', 'Arquivo (nao e noticia)', 'N/A', 'N/A'
-
-    # 0b. Rejeita documentação técnica com prefixo explícito no título
-    # Ex: "Manual – Cadastro de Entidade de Remessa - PJe"
-    PREFIXOS_DOCUMENTACAO = [
-        'manual \u2013', 'manual -', 'manual:', 'manual ',
-        'tutorial \u2013', 'tutorial -', 'tutorial ',
-        'guia \u2013', 'guia -', 'guia ',
-        'faq \u2013', 'faq -',
-        'etp -', 'etp \u2013',           # Estudo Técnico Preliminar
-        'tr \u2013', 'tr -',             # Termo de Referência
-    ]
-    for prefixo in PREFIXOS_DOCUMENTACAO:
-        if titulo_formatado.startswith(prefixo):
-            return 'irrelevante', 'Documentacao (nao e noticia)', 'N/A', 'N/A'
-
-    # 0c. Rejeita páginas genéricas de sistemas indexadas como notícia pelo Google News
-    # Ex: "PJe - tjrj.pje.jus.br" | "Tribunal Regional do Trabalho da 13ª Região - PJe"
-    # Ex: "Comunicações Processuais - PJe" | "Tribunal de Justiça do Estado de X - PJe"
-    PADROES_PAGINA_GENERICA = [
-        r'^pje\s*[-\u2013]\s*[\w.-]+$',                        # "PJe - tjrj.pje.jus.br"
-        r'^(tribunal|trt|tjr?[a-z]+).{3,60}\s*[-\u2013]\s*pje$',  # "Tribunal X - PJe"
-        r'^comunicacoes processuais\s*[-\u2013]\s*pje$',       # "Comunicações Processuais - PJe"
-        # r'^noticias\s*[-\u2013]\s*[\w.-]+$',                   # "Notícias - tjpr.jus.br"
-        r'^clippings\s*[-\u2013]\s*[\w.-]+$',                  # "Clippings - tjpr.jus.br"
-        r'^materiais relevantes\s*[-\u2013]\s*[\w.-]+$',       # "Materiais relevantes - trf3.jus.br"
-        r'^atos do poder .+$',                                  # "Atos do Poder Legislativo - TSE"
-        r'^diario da justica .+$',                              # "Diário da Justiça Eletrônico - TSE"
-        r'^gmf\s*[-\u2013]',                                    # "GMF - Sistemas Carcerário..."
-    ]
-    for padrao in PADROES_PAGINA_GENERICA:
-        if re.match(padrao, titulo_formatado):
-            return 'irrelevante', 'Pagina generica (nao e noticia)', 'N/A', 'N/A'
+    # 0. Pré-filtro: rejeita títulos que são documentos/manuais (não são notícias)
+    #    Executado antes de qualquer alerta para evitar falsos positivos.
+    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*[-–]|$)', titulo.lower()):
+        return 'irrelevante', 'Documentacao (nao e noticia)', 'N/A', 'N/A'
+    if re.search(r'^(manual|guia|instrucao normativa|resolucao|portaria|edital)\s*[–\-]',
+                 titulo_formatado):
+        return 'irrelevante', 'Documentacao (nao e noticia)', 'N/A', 'N/A'
 
     # 1. Bloqueio no Título
-    tem_bloqueio_tit, palavra_bloq_tit, termo_bloq_tit = texto_tem_bloqueio(titulo_formatado)
+    tem_bloqueio_tit, palavra_bloq_tit, termo_bloq_tit = texto_tem_bloqueio(
+        titulo_formatado)
     if tem_bloqueio_tit:
         return 'bloqueado', 'Blacklist (Título)', palavra_bloq_tit, termo_bloq_tit
 
@@ -107,7 +85,8 @@ def avaliar_noticia(titulo, resumo):
         return 'novo', 'Aprovado (Título)', palavra_tit, termo_tit
 
     # 3. Bloqueio no Resumo
-    tem_bloqueio_res, palavra_bloq_res, termo_bloq_res = texto_tem_bloqueio(resumo_formatado)
+    tem_bloqueio_res, palavra_bloq_res, termo_bloq_res = texto_tem_bloqueio(
+        resumo_formatado)
     if tem_bloqueio_res:
         return 'bloqueado', 'Blacklist (Resumo)', palavra_bloq_res, termo_bloq_res
 

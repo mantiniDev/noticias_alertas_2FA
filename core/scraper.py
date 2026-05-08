@@ -105,8 +105,8 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
                 # Data corrompida: assume agora para não perder a entrada
                 data_publicacao = datetime.now()
         else:
-            # Sem data confiável → descarta a entrada
-            continue
+            # Sem campo de data: o filtro when:2d no Google já garante recência
+            data_publicacao = datetime.now()
 
         # ── Filtro de data local (segunda barreira, redundante mas seguro) ──
         if data_publicacao < data_limite:
@@ -119,6 +119,13 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         titulo = entry.title
         resumo = entry.summary if hasattr(entry, 'summary') else ""
         fonte = entry.source.title if hasattr(entry, 'source') else "Google News"
+
+        # Descarta entradas cujo título é apenas o nome do domínio/fonte (RSS sem conteúdo real).
+        # Ex: "- tjrj.jus.br" ou "tjsp.jus.br" — menos de 15 chars úteis após remover a fonte.
+        titulo_util = titulo.replace(f"- {fonte}", "").replace(fonte, "").strip(" -–")
+        if len(titulo_util) < 15:
+            links_ja_coletados.add(link)
+            continue
 
         noticia_bruta = {
             'titulo': titulo,
