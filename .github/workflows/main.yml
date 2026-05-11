@@ -18,6 +18,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Restaurar banco de dados (cache)
+        uses: actions/cache@v4
+        with:
+          path: mast_dados.db
+          key: mast-db-${{ runner.os }}
+          restore-keys: mast-db-
+
       - name: Instalar Dependências
         run: |
           python -m pip install --upgrade pip
