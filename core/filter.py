@@ -1,16 +1,8 @@
 # core/filter.py
 import re
 import unicodedata
-from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS
+from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS, TERMOS_IMUNES
 
-# Termos tão relevantes que anulam qualquer bloqueio da blacklist.
-# Se o título contiver qualquer um desses termos, o bloqueio é ignorado.
-TERMOS_IMUNES = [
-    "pje", "eproc", "esaj", "projudi", "pdpj",
-    "mfa", "2fa", "duplo fator", "dois fatores", "multifator",
-    "autenticacao", "authenticator", "certificado digital",
-    "indisponibilidade", "instabilidade", "ciberataque", "ransomware",
-]
 
 def remover_acentos(texto):
     if not texto: return ""

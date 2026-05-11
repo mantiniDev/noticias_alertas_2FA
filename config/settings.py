@@ -299,3 +299,11 @@ TERMOS_BLOQUEADOS = [
     "semana do magistrado", "semana do promotor", "semana do defensor público", "semana do jurista", 
     "semana do trabalhador", "semana do empreendedor", "semana do cidadão"
 ]
+# Termos tão relevantes que anulam qualquer bloqueio da blacklist.
+# Se o título contiver qualquer um desses termos, o bloqueio é ignorado.
+TERMOS_IMUNES = [
+    "pje", "eproc", "esaj", "projudi", "pdpj",
+    "mfa", "2fa", "duplo fator", "dois fatores", "multifator",
+    "autenticacao", "authenticator", "certificado digital",
+    "indisponibilidade", "instabilidade", "ciberataque", "ransomware",
+]
