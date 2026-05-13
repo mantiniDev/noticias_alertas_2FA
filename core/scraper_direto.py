@@ -92,7 +92,7 @@ TRIBUNAIS_DIRETO = [
     {
         "acronym": "TJPR",
         "name": "Tribunal de Justiça do Paraná",
-        "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367",
+        "url": "https://www.tjpr.jus.br/noticias",
         "parser": "tjpr",
         "base_url": "https://www.tjpr.jus.br",
     },
