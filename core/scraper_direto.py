@@ -93,7 +93,7 @@ TRIBUNAIS_DIRETO = [
         "acronym": "TJPR",
         "name": "Tribunal de Justiça do Paraná",
         "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367",
-        "parser": "generic_news",
+        "parser": "tjpr",
         "base_url": "https://www.tjpr.jus.br",
     },
     {
@@ -340,69 +340,121 @@ def parse_tjmg(soup, acronym, base_url):
 def parse_trf1(soup, acronym, base_url):
     """
     TRF1 — SPA Angular renderizada via Playwright.
-    Após renderização, extrai texto da área de relatório
-    (parágrafo descritivo + tabela de registros).
+    Extrai APENAS linhas de tabela — ignora parágrafos instrucionais
+    fixos da página (ex: "O QUE O RELATÓRIO EXIBE?...").
+    Se não houver tabela renderizada, retorna vazio (sem fallback para <p>).
     """
     results = []
-    # Remove menus
-    for tag in soup.select("nav, header, footer, mat-sidenav"):
+    # Remove menus e painéis laterais
+    for tag in soup.select("nav, header, footer, mat-sidenav, mat-toolbar"):
         tag.decompose()
 
     tabelas = soup.select("table, mat-table")
-    if tabelas:
-        for tabela in tabelas:
-            rows = tabela.select("tr, mat-row, .cdk-row")
-            for row in rows[1:MAX_ITEMS + 1]:
-                cells = row.find_all(["td", "mat-cell", "th"])
-                if not cells:
-                    continue
-                titulo = _txt(cells[0])
-                if len(titulo) < 5:
-                    continue
-                resumo = " | ".join(_txt(c) for c in cells[1:3]) if len(cells) > 1 else ""
-                a = row.find("a")
-                link = _abs(a.get("href", "") if a else "", base_url)
-                results.append({"titulo": titulo, "resumo": resumo, "link": link})
-        if results:
-            return results
+    if not tabelas:
+        # SPA ainda não renderizou — retorna vazio, sem capturar texto de página
+        return results
 
-    # Fallback: captura blocos de texto relevantes (descrição da página)
-    for p in soup.select("p, li")[:MAX_ITEMS]:
-        texto = _txt(p)
-        if len(texto) > 30:
-            a = p.find("a")
+    for tabela in tabelas:
+        rows = tabela.select("tr, mat-row, .cdk-row")
+        for row in rows[1:MAX_ITEMS + 1]:
+            cells = row.find_all(["td", "mat-cell", "th"])
+            if not cells:
+                continue
+            titulo = _txt(cells[0])
+            # Ignora células vazias ou que sejam cabeçalho repetido
+            if len(titulo) < 5:
+                continue
+            resumo = " | ".join(_txt(c) for c in cells[1:3]) if len(cells) > 1 else ""
+            a = row.find("a")
             link = _abs(a.get("href", "") if a else "", base_url)
-            results.append({"titulo": texto[:150], "resumo": texto, "link": link})
+            results.append({"titulo": titulo, "resumo": resumo, "link": link})
+
     return results
 
 
 def parse_trf5(soup, acronym, base_url):
     """
-    TRF5 — extrai apenas linhas da tabela de indisponibilidades,
-    ignorando o formulário de pesquisa e mensagens de interface.
+    TRF5 — extrai apenas linhas reais da tabela de indisponibilidades.
+    Remove formulário, cabeçalho e mensagens de interface antes de parsear.
+    Ignora linhas de UI como "0 resultados", "Pesquisar", "Mensagem".
     """
     results = []
-    # Remove cabeçalho, formulário e paginação
-    for tag in soup.select("form, header, footer, nav, .pagination, .toolbar"):
+    # Remove formulário de pesquisa, cabeçalho, rodapé e paginação
+    for tag in soup.select("form, header, footer, nav, .pagination, .toolbar, .messages"):
         tag.decompose()
 
+    # Frases características de texto de interface — nunca são notícias reais
+    UI_SKIP = {
+        "mensagem", "pesquisar", "observacao", "inativar",
+        "nenhum", "resultados", "de:", "ate:", "numero de dias",
+    }
+
     tabelas = soup.select("table")
-    if tabelas:
-        for tabela in tabelas:
-            rows = tabela.select("tr")[1:]
-            for row in rows[:MAX_ITEMS]:
-                cells = row.find_all("td")
-                if len(cells) < 2:
-                    continue
-                # Colunas típicas: [número/data, sistema, descrição, período]
-                titulo = _txt(cells[0])
-                resumo = " | ".join(_txt(c) for c in cells[1:3])
-                # Ignora linhas que são só UI (ex: mensagem de "Nenhum registro")
-                if len(titulo) < 5 or "nenhum" in titulo.lower():
-                    continue
-                a = row.find("a")
-                link = _abs(a.get("href", "") if a else "", base_url)
-                results.append({"titulo": titulo, "resumo": resumo, "link": link})
+    if not tabelas:
+        return results
+
+    for tabela in tabelas:
+        rows = tabela.select("tr")[1:]
+        for row in rows[:MAX_ITEMS]:
+            cells = row.find_all("td")
+            if len(cells) < 2:
+                continue
+            titulo = _txt(cells[0])
+            titulo_lower = titulo.lower().strip()
+
+            # Descarta linhas de UI
+            if len(titulo) < 5 or any(skip in titulo_lower for skip in UI_SKIP):
+                continue
+
+            resumo = " | ".join(_txt(c) for c in cells[1:3])
+            a = row.find("a")
+            link = _abs(a.get("href", "") if a else "", base_url)
+            results.append({"titulo": titulo, "resumo": resumo, "link": link})
+
+    return results
+
+
+def parse_tjpr(soup, acronym, base_url):
+    """
+    TJPR — captura apenas o conteúdo do asset_publisher (área de notícias),
+    ignorando menus laterais, links de YouTube e seções institucionais.
+    """
+    results = []
+
+    # Remove menus, rodapé, sidebar e qualquer link para YouTube/redes sociais
+    for tag in soup.select("nav, header, footer, .portlet-navigation, "
+                           ".lfr-nav, .taglib-navigation, aside, "
+                           "a[href*='youtube'], a[href*='instagram']"):
+        tag.decompose()
+
+    # Foca na área do asset_publisher (conteúdo principal da página)
+    area = (
+        soup.select_one(".asset-publisher, .portlet-asset-publisher, "
+                        "#content, .journal-content-article, main")
+        or soup
+    )
+
+    # Captura links com texto relevante dentro da área de conteúdo
+    SKIP_FRAGMENTS = {
+        "tribunal do júri", "2º grau", "notas tjpr", "agenda institucional",
+        "notas de falecimento", "youtube", "instagram", "facebook",
+    }
+
+    for a in area.select("a[href]")[:MAX_ITEMS]:
+        titulo = _txt(a)
+        titulo_lower = titulo.lower()
+        href = a.get("href", "")
+
+        if href.startswith("javascript") or href.startswith("#"):
+            continue
+        if len(titulo) < 15:
+            continue
+        if any(skip in titulo_lower for skip in SKIP_FRAGMENTS):
+            continue
+
+        link = _abs(href, base_url)
+        results.append({"titulo": titulo, "resumo": "", "link": link})
+
     return results
 
 
@@ -412,6 +464,7 @@ PARSERS = {
     "generic_table": parse_generic_table,
     "tjsp":          parse_tjsp,
     "tjmg":          parse_tjmg,
+    "tjpr":          parse_tjpr,
     "trf1":          parse_trf1,
     "trf5":          parse_trf5,
 }
