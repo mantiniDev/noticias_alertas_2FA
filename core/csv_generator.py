@@ -1,24 +1,53 @@
 # core/csv_generator.py
+import logging
 import os
 import csv
+from datetime import datetime
 
-def gerar_csv_relatorio(dados):
-    """Gera um arquivo CSV com os dados históricos dos dois bancos (Scraper + Filter) e retorna o caminho."""
-    
-    # O CSV será salvo temporariamente na raiz do projeto
-    caminho_csv = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Historico.csv'))
-    
-    # utf-8-sig ajuda o Excel a ler os acentos corretamente
-    with open(caminho_csv, mode='w', newline='', encoding='utf-8-sig') as arquivo_csv:
-        writer = csv.writer(arquivo_csv, delimiter=';') 
-        
-        # CABEÇALHO AUDITORIA PROFUNDA
-        writer.writerow(['Data da Notícia', 'Nome da Fonte', 'Título', 'Status', 'Motivo da Decisão', 'Lista do Gatilho', 'Palavra Capturada', 'Link da Notícia'])
-        
+log = logging.getLogger(__name__)
+
+_CABECALHO = [
+    'Data da Notícia', 'Nome da Fonte', 'Título', 'Status',
+    'Motivo da Decisão', 'Lista do Gatilho', 'Palavra Capturada', 'Link da Notícia',
+]
+# row contém 8 itens na ordem: data_noticia, nome_fonte, titulo_noticia,
+# status, motivo, termo_base (Lista do Gatilho), palavra_encontrada (Palavra Capturada), link
+
+
+def _escrever_csv(caminho: str, dados: list[tuple]) -> None:
+    """Grava cabeçalho + linhas em um arquivo CSV UTF-8-sig."""
+    with open(caminho, mode='w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.writer(f, delimiter=';')
+        writer.writerow(_CABECALHO)
         if dados:
-            for row in dados:
-                # row agora contém 7 itens: data, fonte, palavra, termo, titulo, link, status
-                writer.writerow(row)
-                
-    print(f"📊 CSV de Auditoria Gerado com sucesso: {caminho_csv}")
+            writer.writerows(dados)
+
+
+def gerar_csv_relatorio(dados: list[tuple]) -> str:
+    """
+    Gera o CSV da rodada atual e salva uma cópia histórica com timestamp.
+
+    Retorna o caminho do arquivo principal (Historico.csv) — usado como
+    anexo no e-mail.
+
+    Estrutura de arquivos:
+      Historico.csv                          ← sobrescrito a cada run (para e-mail)
+      historico/Historico_YYYY-MM-DD_HHMM.csv ← cópia permanente por execução
+    """
+    raiz = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+    # Arquivo principal (backward-compat com e-mail e GitHub Actions cache)
+    caminho_csv = os.path.join(raiz, 'Historico.csv')
+
+    # Cópia histórica com timestamp — nunca sobrescrita
+    historico_dir = os.path.join(raiz, 'historico')
+    os.makedirs(historico_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M")
+    caminho_historico = os.path.join(historico_dir, f"Historico_{timestamp}.csv")
+
+    _escrever_csv(caminho_csv, dados)
+    _escrever_csv(caminho_historico, dados)
+
+    log.info("📊 CSV gerado: %s", caminho_csv)
+    log.info("📦 Cópia histórica: %s", caminho_historico)
     return caminho_csv

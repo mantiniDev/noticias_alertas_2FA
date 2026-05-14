@@ -1,11 +1,14 @@
 # core/pdf_generator.py
+import logging
 import os
 from reportlab.lib.pagesizes import A4
+
+log = logging.getLogger(__name__)
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from datetime import datetime
 
-def gerar_pdf_relatorio(dados):
+def gerar_pdf_relatorio(dados: list[tuple]) -> str:
     """Gera um PDF formatado com os dados históricos do banco e retorna o caminho do arquivo."""
     
     caminho_pdf = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Relatorio_MAST.pdf'))
@@ -46,5 +49,5 @@ def gerar_pdf_relatorio(dados):
             story.append(Spacer(1, 10))
 
     doc.build(story)
-    print(f"📄 PDF Gerado com sucesso: {caminho_pdf}")
+    log.info("📄 PDF gerado: %s", caminho_pdf)
     return caminho_pdf

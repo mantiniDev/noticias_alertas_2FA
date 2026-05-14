@@ -24,20 +24,18 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 
+from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS
 from core.filter import avaliar_noticia
 from core.database import verificar_status_noticia, salvar_auditoria
 
+# Suprime aviso de SSL apenas quando o fallback verify=False é acionado explicitamente
 warnings.filterwarnings("ignore", category=urllib3.exceptions.InsecureRequestWarning)
 
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
-# Constantes
+# Constantes locais de apresentação HTTP
 # ---------------------------------------------------------------------------
-REQUEST_TIMEOUT  = 15
-PLAYWRIGHT_TIMEOUT = 25_000   # ms — aumentado para sites lentos (TJRJ)
-MAX_ITEMS        = 30         # máx de itens brutos por tribunal
-
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -134,13 +132,29 @@ TRIBUNAIS_DIRETO = [
 # ---------------------------------------------------------------------------
 
 def _fetch_requests(url: str):
-    """Baixa página via requests. Retorna BeautifulSoup ou None."""
+    """Baixa página via requests. Retorna BeautifulSoup ou None.
+
+    Tenta primeiro com verify=True (seguro). Se o tribunal tiver problema
+    de certificado (SSLError), reexecuta com verify=False e registra aviso
+    — mantendo segurança na maioria dos sites mas tolerando CAs antigas.
+    """
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
+        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=True)
         resp.raise_for_status()
         if len(resp.text) < 400:
             return None
         return BeautifulSoup(resp.text, "lxml")
+    except requests.exceptions.SSLError:
+        log.warning("⚠️  Certificado SSL inválido em %s — retentando sem verificação.", url)
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
+            resp.raise_for_status()
+            if len(resp.text) < 400:
+                return None
+            return BeautifulSoup(resp.text, "lxml")
+        except Exception as exc:
+            log.debug("requests falhou (sem SSL) para %s: %s", url, exc)
+            return None
     except Exception as exc:
         log.debug("requests falhou para %s: %s", url, exc)
         return None

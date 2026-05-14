@@ -1,16 +1,20 @@
 # core/notifier.py
+import logging
 import smtplib
 import os
+import time
 from datetime import datetime, timedelta
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.mime.base import MIMEBase
 from email import encoders
 from email.utils import encode_rfc2231
-from config.settings import TRIBUNAIS
+from config.settings import TRIBUNAIS, SMTP_TENTATIVAS
+
+log = logging.getLogger(__name__)
 
 
-def gerar_corpos_email(noticias):
+def gerar_corpos_email(noticias: list[dict]) -> tuple[str, str]:
     hoje = datetime.now().strftime("%d/%m/%Y")
     duas_dias_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
 
@@ -91,28 +95,46 @@ def gerar_corpos_email(noticias):
     return texto_puro, html
 
 
-def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
+def _anexar_arquivo(msg: MIMEMultipart, caminho: str) -> None:
+    """Anexa um arquivo ao MIMEMultipart com encoding RFC2231 para nomes acentuados."""
+    with open(caminho, "rb") as f:
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(f.read())
+    encoders.encode_base64(part)
+    nome_arquivo = os.path.basename(caminho)
+    part.add_header(
+        "Content-Disposition",
+        "attachment",
+        filename=encode_rfc2231(nome_arquivo, charset='utf-8'),
+    )
+    msg.attach(part)
+
+
+def enviar_email(
+    texto_puro: str,
+    html: str,
+    total_noticias: int,
+    anexo_path: str | None = None,
+    pdf_path: str | None = None,
+) -> None:
     remetente    = os.environ.get('EMAIL_REMETENTE')
     senha        = os.environ.get('EMAIL_SENHA')
     destinatario = os.environ.get('EMAIL_SLACK_DESTINATARIO')
 
-    if not remetente or not senha or not destinatario:
-        print(
-            "Erro: EMAIL_REMETENTE, EMAIL_SENHA ou EMAIL_DESTINATARIO "
-            "não configurados nos GitHub Secrets."
-        )
+    if not remetente:
+        log.error("Variável EMAIL_REMETENTE não configurada nos GitHub Secrets.")
+        return
+    if not senha:
+        log.error("Variável EMAIL_SENHA não configurada nos GitHub Secrets.")
+        return
+    if not destinatario:
+        log.error("Variável EMAIL_SLACK_DESTINATARIO não configurada nos GitHub Secrets.")
         return
 
     if total_noticias == 0:
-        assunto = (
-            f"MAST - Sem alertas relevantes em "
-            f"{datetime.now().strftime('%d/%m/%Y')}"
-        )
+        assunto = f"MAST - Sem alertas relevantes em {datetime.now().strftime('%d/%m/%Y')}"
     else:
-        assunto = (
-            f"MAST - {total_noticias} alerta(s) encontrado(s) em "
-            f"{datetime.now().strftime('%d/%m/%Y')}"
-        )
+        assunto = f"MAST - {total_noticias} alerta(s) encontrado(s) em {datetime.now().strftime('%d/%m/%Y')}"
 
     msg = MIMEMultipart('alternative')
     msg['From']    = remetente
@@ -123,27 +145,28 @@ def enviar_email(texto_puro, html, total_noticias, anexo_path=None):
     msg.attach(MIMEText(html, 'html', 'utf-8'))
 
     if anexo_path and os.path.exists(anexo_path):
-        with open(anexo_path, "rb") as attachment:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(attachment.read())
-            encoders.encode_base64(part)
-            # CORRIGIDO: encode_rfc2231 resolve nomes de arquivo com acentos (ex: Histórico.csv)
-            nome_arquivo = os.path.basename(anexo_path)
-            part.add_header(
-                "Content-Disposition",
-                "attachment",
-                filename=encode_rfc2231(nome_arquivo, charset='utf-8')
-            )
-        msg.attach(part)
+        _anexar_arquivo(msg, anexo_path)
+        log.info("Anexo CSV adicionado: %s", os.path.basename(anexo_path))
 
-    try:
-        print("Conectando ao servidor SMTP...")
-        # CORRIGIDO: timeout=30 evita o workflow ficar pendurado se o Gmail não responder
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=30)
-        server.starttls()
-        server.login(remetente, senha)
-        server.send_message(msg)
-        server.quit()
-        print(f"📧 E-mail enviado com sucesso! ({total_noticias} alertas)")
-    except Exception as e:
-        print(f"❌ Erro ao enviar e-mail: {e}")
+    if pdf_path and os.path.exists(pdf_path):
+        _anexar_arquivo(msg, pdf_path)
+        log.info("Anexo PDF adicionado: %s", os.path.basename(pdf_path))
+
+    # ── Envio com retry/backoff exponencial ───────────────────────────────
+    for tentativa in range(1, SMTP_TENTATIVAS + 1):
+        try:
+            log.info("Conectando ao servidor SMTP (tentativa %d/%d)...", tentativa, SMTP_TENTATIVAS)
+            server = smtplib.SMTP('smtp.gmail.com', 587, timeout=30)
+            server.starttls()
+            server.login(remetente, senha)
+            server.send_message(msg)
+            server.quit()
+            log.info("📧 E-mail enviado com sucesso! (%d alertas)", total_noticias)
+            return
+        except Exception as exc:
+            if tentativa == SMTP_TENTATIVAS:
+                log.error("❌ Falha ao enviar e-mail após %d tentativas: %s", SMTP_TENTATIVAS, exc)
+            else:
+                espera = 2 ** tentativa
+                log.warning("⚠️  Tentativa %d falhou (%s) — retentando em %ds...", tentativa, exc, espera)
+                time.sleep(espera)

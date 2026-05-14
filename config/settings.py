@@ -251,7 +251,7 @@ TERMOS_FORTES_TI = [
 
 TERMOS_COMPOSTOS = [
    
-     ["fora do ar", "sistema"], ["fora do ar", "portal"], ["fora do ar", "tribunal"],
+    ["fora do ar", "sistema"], ["fora do ar", "portal"], ["fora do ar", "tribunal"],
     ["lentidão", "sistema"], ["lentidão", "portal"], ["lentidão", "processo eletrônico"],
     ["instabilidade", "sistema"], ["instabilidade", "portal"],
     ["indisponibilidade", "sistema"], ["indisponibilidade", "portal"],
@@ -307,3 +307,18 @@ TERMOS_IMUNES = [
     "autenticacao", "authenticator", "certificado digital",
     "indisponibilidade", "instabilidade", "ciberataque", "ransomware",
 ]
+
+# ── Constantes operacionais ──────────────────────────────────────────────────
+# Centralizadas aqui para evitar magic numbers espalhados pelo código.
+# Para ajustar o comportamento do MAST, edite apenas esta seção.
+
+DIAS_JANELA          = 2        # janela de busca retroativa em dias (RSS + filtro local)
+LOTE_DOMINIOS        = 20       # domínios por query no Google News (evita URL > 2000 chars)
+LOTE_SIGLAS          = 10       # siglas de tribunais por query no Google News
+LOTE_TERMOS          = 5        # termos/frases por query no Google News
+TITULO_MIN_CHARS     = 15       # mínimo de chars úteis no título RSS para aceitar a entrada
+CSV_LIMITE_REGISTROS = 100      # máx de registros incluídos no CSV anexado ao e-mail
+REQUEST_TIMEOUT      = 15       # timeout HTTP em segundos (requests / scraper direto)
+PLAYWRIGHT_TIMEOUT   = 25_000   # timeout do Playwright em ms (SPAs / sites com JS)
+MAX_ITEMS            = 30       # máx de itens brutos coletados por tribunal no scraper direto
+SMTP_TENTATIVAS      = 3        # número de tentativas de envio do e-mail com backoff

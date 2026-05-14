@@ -7,7 +7,7 @@ BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 DB_PATH = os.path.join(BASE_DIR, 'mast_dados.db')
 
 
-def init_db():
+def init_db() -> None:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
@@ -39,7 +39,7 @@ def init_db():
     conn.close()
 
 
-def verificar_status_noticia(link):
+def verificar_status_noticia(link: str) -> bool:
     if not os.path.exists(DB_PATH):
         return False
     conn = sqlite3.connect(DB_PATH)
@@ -50,7 +50,13 @@ def verificar_status_noticia(link):
     return resultado is not None
 
 
-def salvar_auditoria(noticia_bruta, status, motivo, palavra_encontrada, termo_base):
+def salvar_auditoria(
+    noticia_bruta: dict,
+    status: str,
+    motivo: str,
+    palavra_encontrada: str,
+    termo_base: str,
+) -> None:
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
     link = noticia_bruta['link']
@@ -89,7 +95,7 @@ def salvar_auditoria(noticia_bruta, status, motivo, palavra_encontrada, termo_ba
     conn.close()
 
 
-def buscar_dados_para_csv(limite=500, desde=None):
+def buscar_dados_para_csv(limite: int = 500, desde: datetime | None = None) -> list[tuple]:
     """
     Retorna os registros de auditoria para geração do CSV.
 

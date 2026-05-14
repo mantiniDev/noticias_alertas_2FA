@@ -2,14 +2,17 @@
 import feedparser
 import urllib.parse
 from datetime import datetime, timedelta
+import logging
 import time
 from config.settings import (
     TRIBUNAIS, FONTES_OFICIAIS,
-    TERMOS_ESPECIFICOS, TERMOS_FORTES_TI, TERMOS_BLOQUEADOS
+    TERMOS_ESPECIFICOS, TERMOS_FORTES_TI, TERMOS_BLOQUEADOS,
+    DIAS_JANELA, LOTE_DOMINIOS, LOTE_SIGLAS, LOTE_TERMOS, TITULO_MIN_CHARS,
 )
 from core.filter import avaliar_noticia
 from core.database import verificar_status_noticia, salvar_auditoria
 
+log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Grupos temáticos extraídos de TERMOS_FORTES_TI (curtos, sem aspas duplas,
@@ -87,13 +90,32 @@ def construir_url_rss(query_final: str, data_limite: datetime) -> str:
 
     # Alerta se a URL estiver perto do limite de truncamento do Google (~2000 chars)
     if len(url) > 2000:
-        print(f"  ⚠️  URL longa ({len(url)} chars) — reduza o lote de termos ou domínios.")
+        log.warning("URL longa (%d chars) — reduza o lote de termos ou domínios.", len(url))
 
     return url
 
 
+def _parse_feed_com_retry(url: str, tentativas: int = 3) -> feedparser.FeedParserDict:
+    """Faz o parse do feed RSS com backoff exponencial em caso de falha."""
+    for tentativa in range(1, tentativas + 1):
+        try:
+            feed = feedparser.parse(url)
+            # bozo=True com entries vazia indica falha real (ex: timeout, HTML em vez de XML)
+            if feed.get('bozo') and not feed.entries:
+                raise ValueError(f"Feed inválido: {feed.get('bozo_exception')}")
+            return feed
+        except Exception as exc:
+            if tentativa == tentativas:
+                log.warning("Feed falhou após %d tentativas: %s", tentativas, exc)
+                return feedparser.FeedParserDict(entries=[])
+            espera = 2 ** tentativa
+            log.debug("Tentativa %d/%d falhou (%s) — aguardando %ds...", tentativa, tentativas, exc, espera)
+            time.sleep(espera)
+    return feedparser.FeedParserDict(entries=[])
+
+
 def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias):
-    feed = feedparser.parse(url_rss)
+    feed = _parse_feed_com_retry(url_rss)
     for entry in feed.entries:
 
         # ── Extração robusta da data de publicação ────────────────────
@@ -123,7 +145,7 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         # Descarta entradas cujo título é apenas o nome do domínio/fonte (RSS sem conteúdo real).
         # Ex: "- tjrj.jus.br" ou "tjsp.jus.br" — menos de 15 chars úteis após remover a fonte.
         titulo_util = titulo.replace(f"- {fonte}", "").replace(fonte, "").strip(" -–")
-        if len(titulo_util) < 15:
+        if len(titulo_util) < TITULO_MIN_CHARS:
             links_ja_coletados.add(link)
             continue
 
@@ -155,36 +177,31 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         links_ja_coletados.add(link)
 
 
-def buscar_noticias_semanais():
-    todas_noticias = []
-    links_ja_coletados = set()
-    data_limite = datetime.now() - timedelta(days=2)
+def buscar_noticias_semanais() -> list[dict]:
+    todas_noticias: list[dict] = []
+    links_ja_coletados: set[str] = set()
+    data_limite = datetime.now() - timedelta(days=DIAS_JANELA)
 
     lista_dominios = extrair_dominios_oficiais()
 
-    # Lotes de domínios — mantemos 20 por lote como estava
-    tamanho_lote_dominios = 20
     lotes_dominios = [
-        lista_dominios[i:i + tamanho_lote_dominios]
-        for i in range(0, len(lista_dominios), tamanho_lote_dominios)
+        lista_dominios[i:i + LOTE_DOMINIOS]
+        for i in range(0, len(lista_dominios), LOTE_DOMINIOS)
     ]
 
-    # Lotes de siglas — 10 por lote como estava
     siglas = [t["acronym"] for t in TRIBUNAIS]
-    tamanho_lote_siglas = 10
     lotes_siglas = [
-        siglas[i:i + tamanho_lote_siglas]
-        for i in range(0, len(siglas), tamanho_lote_siglas)
+        siglas[i:i + LOTE_SIGLAS]
+        for i in range(0, len(siglas), LOTE_SIGLAS)
     ]
 
     # ── FASE 1: Grupos temáticos × siglas × domínios ─────────────────
     # Cada grupo é uma query pequena e focada, evitando truncamento.
-    print(f"Iniciando Fase 1: {len(GRUPOS_TERMOS_FORTES)} grupos temáticos "
-          f"x {len(lotes_siglas)} lotes de siglas "
-          f"x {len(lotes_dominios)} lotes de domínios...")
+    log.info("Iniciando Fase 1: %d grupos temáticos x %d lotes de siglas x %d lotes de domínios...",
+             len(GRUPOS_TERMOS_FORTES), len(lotes_siglas), len(lotes_dominios))
 
     for nome_grupo, termos in GRUPOS_TERMOS_FORTES.items():
-        print(f"  -> Grupo: {nome_grupo}")
+        log.info("  -> Grupo: %s", nome_grupo)
         query_termos = "(" + " OR ".join(termos) + ")"
 
         for lote_siglas in lotes_siglas:
@@ -199,12 +216,11 @@ def buscar_noticias_semanais():
 
     # ── FASE 2: TERMOS_ESPECIFICOS (frases exatas) × domínios ────────
     # Não combinamos com siglas aqui — as frases já são específicas o suficiente.
-    print("Iniciando Fase 2: Frases exatas de TERMOS_ESPECIFICOS x domínios...")
+    log.info("Iniciando Fase 2: Frases exatas de TERMOS_ESPECIFICOS x domínios...")
 
-    tamanho_lote_termos = 5  # Reduzido de 6 para 5: frases longas pesam mais na URL
     lotes_termos = [
-        TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos]
-        for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)
+        TERMOS_ESPECIFICOS[i:i + LOTE_TERMOS]
+        for i in range(0, len(TERMOS_ESPECIFICOS), LOTE_TERMOS)
     ]
 
     for lote_termos in lotes_termos:
@@ -220,11 +236,10 @@ def buscar_noticias_semanais():
     # ── FASE 3: TERMOS_FORTES_TI sem filtro de domínio ───────────────
     # Busca aberta na web (sem site:), útil para pegar noticias em portais
     # especializados que nao estao na lista de dominios oficiais.
-    print("Iniciando Fase 3: TERMOS_FORTES_TI sem filtro de dominio (busca aberta)...")
+    log.info("Iniciando Fase 3: TERMOS_FORTES_TI sem filtro de domínio (busca aberta)...")
 
-    tamanho_lote_fortes = 5
     lotes_fortes = [
-        TERMOS_FORTES_TI[i:i + tamanho_lote_fortes]
+        TERMOS_FORTES_TI[i:i + LOTE_TERMOS]
         for i in range(0, len(TERMOS_FORTES_TI), tamanho_lote_fortes)
     ]
 
@@ -240,5 +255,5 @@ def buscar_noticias_semanais():
             time.sleep(1.5)
 
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)
-    print(f"Coleta finalizada. {len(todas_noticias)} noticias novas encontradas.")
+    log.info("Coleta RSS finalizada. %d notícias novas encontradas.", len(todas_noticias))
     return todas_noticias

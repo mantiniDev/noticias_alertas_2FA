@@ -1,66 +1,116 @@
 # core/filter.py
 import re
 import unicodedata
-from config.settings import TERMOS_BLOQUEADOS, TERMOS_FORTES_TI, TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS, TERMOS_IMUNES
+from config.settings import (
+    TERMOS_BLOQUEADOS, TERMOS_FORTES_TI,
+    TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS, TERMOS_IMUNES,
+)
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Pré-compilação dos padrões regex no carregamento do módulo.
+# Antes: ~150 re.compile() a cada notícia avaliada.
+# Agora: compilação única na inicialização; avaliação usa apenas .search().
+# ──────────────────────────────────────────────────────────────────────────────
+
+def _limpar(termo: str) -> str:
+    """Remove acentos e converte para minúsculas (usado só na inicialização)."""
+    nfkd = unicodedata.normalize('NFKD', termo)
+    return "".join(c for c in nfkd if not unicodedata.combining(c)).lower()
 
 
-def remover_acentos(texto):
-    if not texto: return ""
+def _compilar(termo_limpo: str, sufixo: str = r'(s|es)?') -> re.Pattern:
+    return re.compile(r'\b' + re.escape(termo_limpo) + sufixo + r'\b')
+
+
+# (padrão, termo_original)
+_IMUNES: list[tuple[re.Pattern, str]] = [
+    (_compilar(_limpar(t)), t)
+    for t in TERMOS_IMUNES
+]
+
+# (padrão, termo_original)
+_BLOQUEADOS: list[tuple[re.Pattern, str]] = [
+    (_compilar(_limpar(t), r'(s)?'), t)
+    for t in TERMOS_BLOQUEADOS
+]
+
+# (padrão, termo_limpo_display, termo_display_com_tipo)
+_ESPECIFICOS: list[tuple[re.Pattern, str, str]] = [
+    (
+        _compilar(_limpar(t.replace('"', ''))),
+        t.replace('"', ''),
+        t.replace('"', '') + ' (Específico)',
+    )
+    for t in TERMOS_ESPECIFICOS
+]
+
+# (padrão, termo_original, termo_display_com_tipo)
+_FORTES: list[tuple[re.Pattern, str, str]] = [
+    (_compilar(_limpar(t)), t, t + ' (Forte)')
+    for t in TERMOS_FORTES_TI
+]
+
+# (padrão1, padrão2, termo1, termo2)
+_COMPOSTOS: list[tuple[re.Pattern, re.Pattern, str, str]] = [
+    (_compilar(_limpar(par[0])), _compilar(_limpar(par[1])), par[0], par[1])
+    for par in TERMOS_COMPOSTOS
+]
+
+# Padrão de arquivo — compilado uma vez
+_ARQUIVO = re.compile(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)')
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Funções de avaliação (usam apenas os padrões pré-compilados acima)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def remover_acentos(texto: str) -> str:
+    if not texto:
+        return ""
     nfkd = unicodedata.normalize('NFKD', texto)
-    return u"".join([c for c in nfkd if not unicodedata.combining(c)])
+    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
-def titulo_tem_imunidade(titulo_limpo):
-    """Retorna True se o título contiver um termo imune que anula o bloqueio."""
-    for termo in TERMOS_IMUNES:
-        termo_limpo = remover_acentos(termo.lower())
-        if re.search(r'\b' + re.escape(termo_limpo) + r'(s|es)?\b', titulo_limpo):
+
+def titulo_tem_imunidade(titulo_limpo: str) -> tuple[bool, str | None]:
+    """Retorna (True, termo) se o título contiver um termo imune."""
+    for padrao, termo in _IMUNES:
+        if padrao.search(titulo_limpo):
             return True, termo
     return False, None
 
-def texto_tem_bloqueio(texto_limpo):
-    for termo in TERMOS_BLOQUEADOS:
-        termo_limpo = remover_acentos(termo.lower())
-        match = re.search(r'\b' + re.escape(termo_limpo) + r'(s)?\b', texto_limpo)
+
+def texto_tem_bloqueio(texto_limpo: str) -> tuple[bool, str | None, str | None]:
+    for padrao, termo in _BLOQUEADOS:
+        match = padrao.search(texto_limpo)
         if match:
-            # Retorna True, a palavra exata que bloqueou, e a palavra original da Blacklist
-            return True, match.group(0), termo 
+            return True, match.group(0), termo
     return False, None, None
 
-def texto_tem_alerta(texto_limpo):
-    # 1. Filtro de Termos Específicos (Prioridade Máxima)
-    for termo in TERMOS_ESPECIFICOS:
-        # Removemos as aspas duplas da string para bater com o texto limpo da notícia
-        termo_limpo = remover_acentos(termo.replace('"', '').lower())
-        padrao = r'\b' + re.escape(termo_limpo) + r'(s|es)?\b'
-        match = re.search(padrao, texto_limpo)
-        if match:
-            return True, match.group(0), termo.replace('"', '') + " (Específico)"
 
-    # 2. Filtro de Termos Fortes
-    for termo in TERMOS_FORTES_TI:
-        termo_limpo = remover_acentos(termo.lower())
-        padrao = r'\b' + re.escape(termo_limpo) + r'(s|es)?\b'
-        match = re.search(padrao, texto_limpo)
+def texto_tem_alerta(texto_limpo: str) -> tuple[bool, str | None, str | None]:
+    # 1. Termos específicos (prioridade máxima)
+    for padrao, _, termo_display in _ESPECIFICOS:
+        match = padrao.search(texto_limpo)
         if match:
-            return True, match.group(0), termo + " (Forte)"
-            
-    # 3. Filtro de Termos Compostos
-    for par in TERMOS_COMPOSTOS:
-        p1 = remover_acentos(par[0].lower())
-        p2 = remover_acentos(par[1].lower())
-        padrao1 = r'\b' + re.escape(p1) + r'(s|es)?\b'
-        padrao2 = r'\b' + re.escape(p2) + r'(s|es)?\b'
-        match1 = re.search(padrao1, texto_limpo)
-        match2 = re.search(padrao2, texto_limpo)
-        
+            return True, match.group(0), termo_display
+
+    # 2. Termos fortes
+    for padrao, _, termo_display in _FORTES:
+        match = padrao.search(texto_limpo)
+        if match:
+            return True, match.group(0), termo_display
+
+    # 3. Termos compostos (ambas as palavras devem estar presentes)
+    for padrao1, padrao2, t1, t2 in _COMPOSTOS:
+        match1 = padrao1.search(texto_limpo)
+        match2 = padrao2.search(texto_limpo)
         if match1 and match2:
-            palavra_ext = f"{match1.group(0)} + {match2.group(0)}"
-            termo_bs = f"{par[0]} + {par[1]}"
-            return True, palavra_ext, termo_bs + " (Composto)"
-            
+            return True, f"{match1.group(0)} + {match2.group(0)}", f"{t1} + {t2} (Composto)"
+
     return False, None, None
 
-def avaliar_noticia(titulo, resumo):
+
+def avaliar_noticia(titulo: str, resumo: str) -> tuple[str, str, str, str]:
     """
     Retorna 4 itens: (STATUS, MOTIVO, PALAVRA_EXTRAIDA, TERMO_BASE)
 
@@ -68,7 +118,7 @@ def avaliar_noticia(titulo, resumo):
       1. Imunidade no Título  → se tem termo imune, pula bloqueio e vai direto ao alerta
       2. Bloqueio no Título   → descarta se blacklist bater (sem imunidade)
       3. Alerta no Título     → aprova se termo de TI bater
-      4. Bloqueio no Resumo  → descarta se blacklist bater (sem imunidade)
+      4. Bloqueio no Resumo  → descarta se blacklist bater
       5. Alerta no Resumo    → aprova se termo de TI bater
       6. Arquivo              → descarta títulos que são nomes de arquivo
       7. Irrelevante          → sem termos de TI
@@ -77,35 +127,35 @@ def avaliar_noticia(titulo, resumo):
     titulo_formatado = remover_acentos(titulo_puro.lower())
     resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
 
-    # 1. Imunidade no Título — termo de alta prioridade anula o bloqueio
+    # 1. Imunidade no Título
     imune, termo_imune = titulo_tem_imunidade(titulo_formatado)
     if imune:
-        tem_alerta_tit, palavra_tit, termo_tit = texto_tem_alerta(titulo_formatado)
-        if tem_alerta_tit:
-            return 'novo', f'Aprovado - Imune por "{termo_imune}" (Título)', palavra_tit, termo_tit
+        tem_alerta, palavra, termo = texto_tem_alerta(titulo_formatado)
+        if tem_alerta:
+            return 'novo', f'Aprovado - Imune por "{termo_imune}" (Título)', palavra, termo
 
     # 2. Bloqueio no Título
-    tem_bloqueio_tit, palavra_bloq_tit, termo_bloq_tit = texto_tem_bloqueio(titulo_formatado)
-    if tem_bloqueio_tit:
-        return 'bloqueado', 'Blacklist (Título)', palavra_bloq_tit, termo_bloq_tit
+    tem_bloqueio, palavra, termo = texto_tem_bloqueio(titulo_formatado)
+    if tem_bloqueio:
+        return 'bloqueado', 'Blacklist (Título)', palavra, termo
 
     # 3. Alerta no Título
-    tem_alerta_tit, palavra_tit, termo_tit = texto_tem_alerta(titulo_formatado)
-    if tem_alerta_tit:
-        return 'novo', 'Aprovado (Título)', palavra_tit, termo_tit
+    tem_alerta, palavra, termo = texto_tem_alerta(titulo_formatado)
+    if tem_alerta:
+        return 'novo', 'Aprovado (Título)', palavra, termo
 
     # 4. Bloqueio no Resumo
-    tem_bloqueio_res, palavra_bloq_res, termo_bloq_res = texto_tem_bloqueio(resumo_formatado)
-    if tem_bloqueio_res:
-        return 'bloqueado', 'Blacklist (Resumo)', palavra_bloq_res, termo_bloq_res
+    tem_bloqueio, palavra, termo = texto_tem_bloqueio(resumo_formatado)
+    if tem_bloqueio:
+        return 'bloqueado', 'Blacklist (Resumo)', palavra, termo
 
     # 5. Alerta no Resumo
-    tem_alerta_res, palavra_res, termo_res = texto_tem_alerta(resumo_formatado)
-    if tem_alerta_res:
-        return 'novo', 'Aprovado (Resumo)', palavra_res, termo_res
-    
+    tem_alerta, palavra, termo = texto_tem_alerta(resumo_formatado)
+    if tem_alerta:
+        return 'novo', 'Aprovado (Resumo)', palavra, termo
+
     # 6. Rejeita títulos que são nomes de arquivos
-    if re.search(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)', titulo.lower()):
+    if _ARQUIVO.search(titulo.lower()):
         return 'irrelevante', 'Arquivo (não é notícia)', 'N/A', 'N/A'
 
     return 'irrelevante', 'Sem Termos TI', 'N/A', 'N/A'
