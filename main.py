@@ -12,6 +12,7 @@ em um único e-mail com CSV e PDF de auditoria anexados.
 import logging
 import logging.handlers
 import os
+import re
 from datetime import datetime, timedelta
 
 from core.scraper import buscar_noticias_semanais
@@ -21,6 +22,30 @@ from core.database import init_db, buscar_dados_para_csv
 from core.csv_generator import gerar_csv_relatorio
 from core.pdf_generator import gerar_pdf_relatorio
 from config.settings import DIAS_JANELA, CSV_LIMITE_REGISTROS
+from core.filter import remover_acentos
+
+
+def _chave_titulo(titulo: str) -> str:
+    """
+    Gera uma chave normalizada do título para deduplicação por conteúdo.
+
+    Problema que resolve: a mesma notícia pode chegar com URLs diferentes
+    (ex: scraper direto usa URL do tribunal; scraper RSS usa URL do Google News),
+    então a deduplicação por link não basta.
+
+    Estratégia:
+      1. Remove prefixo de data que o Google News omite  ("15/04/2026 – ")
+      2. Remove acentos e converte para minúsculas
+      3. Limita a 70 caracteres — suficiente para identificar o conteúdo,
+         curto o bastante para ignorar o sufixo "- Nome da Fonte" do RSS.
+
+    Títulos com menos de 20 chars retornam string vazia (sem dedup por conteúdo)
+    para evitar falsos positivos em títulos muito curtos.
+    """
+    # Remove prefixo de data: "10 e 11/02/2026 – " ou "15/04/2026 - "
+    t = re.sub(r'^[\d\s/eEaA]+[-–—]+\s*', '', titulo).strip()
+    t = remover_acentos(t.lower())
+    return t[:70] if len(t) >= 20 else ""
 
 
 def _configurar_logging() -> None:
@@ -77,14 +102,25 @@ if __name__ == "__main__":
     log.info("\n[Fase 2] Scraper Direto — Portais dos Tribunais")
     noticias_direto = buscar_noticias_direto()
 
-    # ── Unificação e deduplicação por link ─────────────────────────────
-    links_vistos = set()
-    noticias_unificadas = []
+    # ── Unificação e deduplicação por link E por conteúdo ─────────────
+    # Dedup por link: evita o mesmo URL duas vezes.
+    # Dedup por título: evita a mesma notícia com URLs diferentes
+    #   (scraper direto usa URL do tribunal; RSS usa URL do Google News).
+    links_vistos: set[str] = set()
+    titulos_vistos: set[str] = set()
+    noticias_unificadas: list[dict] = []
 
     for n in noticias_rss + noticias_direto:
-        if n["link"] not in links_vistos:
-            links_vistos.add(n["link"])
-            noticias_unificadas.append(n)
+        chave = _chave_titulo(n["titulo"])
+        if n["link"] in links_vistos:
+            continue
+        if chave and chave in titulos_vistos:
+            log.debug("Dedup por título: '%s'", n["titulo"][:80])
+            continue
+        links_vistos.add(n["link"])
+        if chave:
+            titulos_vistos.add(chave)
+        noticias_unificadas.append(n)
 
     noticias_unificadas.sort(key=lambda x: x["data_obj"], reverse=True)
 

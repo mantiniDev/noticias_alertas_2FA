@@ -22,8 +22,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: mast_dados.db
-          key: mast-db-${{ runner.os }}
-          restore-keys: mast-db-
+          # Chave única por run → sempre cache miss → Actions salva ao final de cada execução.
+          # restore-keys encontra o save mais recente da branch, garantindo continuidade do banco.
+          key: mast-db-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            mast-db-${{ runner.os }}-
+            mast-db-
  
       - name: Instalar Dependências
         run: |
