@@ -240,7 +240,7 @@ def buscar_noticias_semanais() -> list[dict]:
 
     lotes_fortes = [
         TERMOS_FORTES_TI[i:i + LOTE_TERMOS]
-        for i in range(0, len(TERMOS_FORTES_TI), tamanho_lote_fortes)
+        for i in range(0, len(TERMOS_FORTES_TI), LOTE_TERMOS)
     ]
 
     for lote_fortes in lotes_fortes:
