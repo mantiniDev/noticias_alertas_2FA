@@ -11,8 +11,8 @@ from config.settings import (
     DIAS_JANELA, LOTE_DOMINIOS, LOTE_SIGLAS, LOTE_TERMOS, TITULO_MIN_CHARS,
     TITULOS_PAGINAS_GENERICAS,
 )
-from core.filter import avaliar_noticia, remover_acentos
-from core.database import verificar_status_noticia, salvar_auditoria
+from core.filter import avaliar_noticia, remover_acentos, normalizar_titulo_chave
+from core.database import verificar_status_noticia, verificar_titulo_chave, salvar_auditoria
 
 # ── Padrões para detecção de páginas de sistema (não-notícias) ────────────────
 # Fonte com aparência de domínio puro: sem espaços, contém pontos.
@@ -188,17 +188,28 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
             'fonte': fonte,
         }
 
-        # Se já existe no banco, arquiva como repetido e ignora
+        # Chave normalizada para deduplicação por conteúdo (cross-run)
+        titulo_chave = normalizar_titulo_chave(titulo)
+
+        # Se já existe no banco pelo link exato, arquiva como repetido e ignora
         if verificar_status_noticia(link):
-            salvar_auditoria(noticia_bruta, 'repetido', 'Já Existente', 'N/A', 'N/A')
+            salvar_auditoria(noticia_bruta, 'repetido', 'Já Existente', 'N/A', 'N/A', titulo_chave)
+            links_ja_coletados.add(link)
+            continue
+
+        # Se o mesmo conteúdo foi aprovado recentemente via URL diferente, bloqueia
+        # (ex: RSS capturou com URL do Google; Scraper Direto capturou com URL do tribunal)
+        if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
+            log.debug("Dedup cross-run por título: '%s'", titulo[:80])
+            salvar_auditoria(noticia_bruta, 'repetido', 'Duplicata de Título (Cross-Run)', 'N/A', 'N/A', titulo_chave)
             links_ja_coletados.add(link)
             continue
 
         # Desempacota as 4 variáveis do Filtro Profundo
         status, motivo, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
 
-        # Salva auditoria completa no banco
-        salvar_auditoria(noticia_bruta, status, motivo, palavra_extraida, termo_base)
+        # Salva auditoria completa no banco (incluindo titulo_chave)
+        salvar_auditoria(noticia_bruta, status, motivo, palavra_extraida, termo_base, titulo_chave)
 
         if status == 'novo':
             noticia_bruta['palavra_extraida'] = palavra_extraida

@@ -24,9 +24,9 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 
-from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS
-from core.filter import avaliar_noticia
-from core.database import verificar_status_noticia, salvar_auditoria
+from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS, DIAS_JANELA
+from core.filter import avaliar_noticia, normalizar_titulo_chave
+from core.database import verificar_status_noticia, verificar_titulo_chave, salvar_auditoria
 
 # Suprime aviso de SSL apenas quando o fallback verify=False é acionado explicitamente
 warnings.filterwarnings("ignore", category=urllib3.exceptions.InsecureRequestWarning)
@@ -540,9 +540,19 @@ def buscar_noticias_direto() -> list:
 
             noticia_bruta = _montar_noticia_bruta(item, acronym, name)
 
-            # Deduplica contra o banco persistente
+            # Chave normalizada para deduplicação por conteúdo (cross-run)
+            titulo_chave = normalizar_titulo_chave(noticia_bruta["titulo"])
+
+            # Deduplica contra o banco por link exato
             if verificar_status_noticia(link):
-                salvar_auditoria(noticia_bruta, "repetido", "Já Existente", "N/A", "N/A")
+                salvar_auditoria(noticia_bruta, "repetido", "Já Existente", "N/A", "N/A", titulo_chave)
+                continue
+
+            # Bloqueia o mesmo conteúdo aprovado recentemente com URL diferente
+            # (ex: RSS capturou via Google News; Direto capturou via URL do tribunal)
+            if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
+                log.debug("Dedup cross-run por título (Direto): '%s'", noticia_bruta["titulo"][:80])
+                salvar_auditoria(noticia_bruta, "repetido", "Duplicata de Título (Cross-Run)", "N/A", "N/A", titulo_chave)
                 continue
 
             # Avalia com o filter.py
@@ -551,8 +561,8 @@ def buscar_noticias_direto() -> list:
                 noticia_bruta["resumo"],
             )
 
-            # Persiste no banco (mesma estrutura que o scraper RSS)
-            salvar_auditoria(noticia_bruta, status, motivo, palavra, termo)
+            # Persiste no banco incluindo titulo_chave para dedup cross-run futuro
+            salvar_auditoria(noticia_bruta, status, motivo, palavra, termo, titulo_chave)
 
             if status == "novo":
                 noticia_bruta["palavra_extraida"] = palavra

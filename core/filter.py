@@ -1,6 +1,10 @@
 # core/filter.py
 import re
 import unicodedata
+
+# Padrão de prefixo de data — compilado uma vez no carregamento do módulo.
+# Cobre formatos: "15/04/2026 – ", "10 e 11/02/2026 - ", "3 e 4/5/2026 — "
+_RE_PREFIXO_DATA = re.compile(r'^[\d\s/eEaA]+[-–—]+\s*')
 from config.settings import (
     TERMOS_BLOQUEADOS, TERMOS_FORTES_TI,
     TERMOS_COMPOSTOS, TERMOS_ESPECIFICOS, TERMOS_IMUNES,
@@ -63,6 +67,30 @@ _ARQUIVO = re.compile(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)')
 # ──────────────────────────────────────────────────────────────────────────────
 # Funções de avaliação (usam apenas os padrões pré-compilados acima)
 # ──────────────────────────────────────────────────────────────────────────────
+
+def normalizar_titulo_chave(titulo: str) -> str:
+    """
+    Gera uma chave normalizada do título para deduplicação por conteúdo.
+
+    Usada em dois contextos:
+      1. Intra-run  : main.py deduplica notícias da mesma execução que chegam
+                     via URL diferente (RSS vs Scraper Direto).
+      2. Cross-run  : database.py persiste a chave para bloquear o mesmo
+                     conteúdo que reaparece via URL diferente em rodadas futuras.
+
+    Estratégia:
+      - Remove prefixo de data ("15/04/2026 – ") que o Google News omite nos
+        títulos dos scrapers diretos.
+      - Remove acentos e converte para minúsculas.
+      - Trunca em 80 chars — suficiente para identificar o evento, curto o
+        bastante para ignorar o sufixo "- Nome da Fonte" do RSS.
+      - Retorna '' para títulos com menos de 20 chars (evita falsos positivos
+        em títulos muito curtos como "Login" ou "Home").
+    """
+    t = _RE_PREFIXO_DATA.sub('', titulo).strip()
+    t = remover_acentos(t.lower())
+    return t[:80] if len(t) >= 20 else ""
+
 
 def remover_acentos(texto: str) -> str:
     if not texto:

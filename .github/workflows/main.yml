@@ -1,42 +1,77 @@
 name: MAST - Monitoramento Automatizado de Sistemas e Tribunais
- 
+
 on:
   schedule:
     - cron: '00 10 * * *'
   workflow_dispatch:
- 
+
 jobs:
   rodar-monitoramento:
     runs-on: ubuntu-latest
- 
+
     steps:
       - name: Fazer o checkout do código
         uses: actions/checkout@v4.2.2
- 
+
       - name: Configurar o Python
         uses: actions/setup-python@v5.6.0
         with:
           python-version: '3.12'
- 
+
+      # ── Camada 1: Cache (rápido, mesmo dia) ─────────────────────────────
+      # Chave única por run → sempre cache miss na restauração → Actions salva
+      # novo cache ao final de cada execução.
+      # restore-keys encontra o save mais recente da branch.
       - name: Restaurar banco de dados (cache)
         uses: actions/cache@v4
         with:
           path: mast_dados.db
-          # Chave única por run → sempre cache miss → Actions salva ao final de cada execução.
-          # restore-keys encontra o save mais recente da branch, garantindo continuidade do banco.
           key: mast-db-${{ runner.os }}-${{ github.run_id }}
           restore-keys: |
             mast-db-${{ runner.os }}-
             mast-db-
- 
+
+      # ── Camada 2: Artifact (fallback — até 90 dias) ──────────────────────
+      # O cache do Actions expira após 7 dias sem acesso ou quando o limite de
+      # 10 GB da conta é atingido.  Se o banco não foi restaurado pelo cache,
+      # este step tenta recuperar o artifact salvo pela última execução bem-
+      # sucedida, garantindo continuidade do histórico de deduplicação.
+      - name: Restaurar banco de artifact (fallback se cache expirou)
+        if: always()
+        run: |
+          if [ -f mast_dados.db ]; then
+            echo "✅ Banco disponível via cache — artifact não necessário."
+          else
+            echo "⚠️  Cache não encontrou banco — tentando recuperar do artifact mais recente..."
+            # Percorre as últimas 10 execuções bem-sucedidas procurando o artifact
+            RECOVERED=false
+            for RUN_ID in $(gh run list \
+                --workflow=main.yml \
+                --status=success \
+                --limit=10 \
+                --json databaseId \
+                --jq '.[].databaseId'); do
+              if gh run download "$RUN_ID" --name mast-db-backup --dir . 2>/dev/null; then
+                echo "✅ Banco recuperado do artifact da execução $RUN_ID."
+                RECOVERED=true
+                break
+              fi
+            done
+            if [ "$RECOVERED" = false ]; then
+              echo "ℹ️  Nenhum artifact encontrado — o banco será criado do zero nesta execução."
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Instalar Dependências
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
- 
+
       - name: Instalar Chromium (Playwright)
         run: python -m playwright install chromium --with-deps
- 
+
       - name: Executar o Monitoramento
         env:
           EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
@@ -47,4 +82,16 @@ jobs:
           set -e
           python main.py
 
-          
+      # ── Salvar banco como artifact (backup de longo prazo) ───────────────
+      # Roda sempre (mesmo se o monitoramento falhar) para não perder o banco.
+      # overwrite=true garante que só o artifact mais recente é mantido,
+      # evitando acúmulo de versões.  Retención de 90 dias supera o limite
+      # de 7 dias do cache.
+      - name: Salvar banco como artifact (backup long-term)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mast-db-backup
+          path: mast_dados.db
+          retention-days: 90
+          overwrite: true
