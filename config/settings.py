@@ -322,3 +322,23 @@ REQUEST_TIMEOUT      = 15       # timeout HTTP em segundos (requests / scraper d
 PLAYWRIGHT_TIMEOUT   = 25_000   # timeout do Playwright em ms (SPAs / sites com JS)
 MAX_ITEMS            = 30       # máx de itens brutos coletados por tribunal no scraper direto
 SMTP_TENTATIVAS      = 3        # número de tentativas de envio do e-mail com backoff
+
+# ── Títulos de páginas genéricas de sistema ──────────────────────────────────
+# Google News às vezes indexa telas do próprio PJe/eproc (login, detalhe de
+# processo, consulta processual) em vez de notícias reais.
+# Quando o campo "fonte" do RSS for um domínio puro (sem espaços, ex:
+# "prd.tjrj.pje.jus.br") E o título_util corresponder a um destes padrões,
+# a entrada é descartada ANTES de chegar ao filtro de termos.
+# Adicione aqui qualquer outro título de tela de sistema que aparecer no futuro.
+TITULOS_PAGINAS_GENERICAS: tuple[str, ...] = (
+    r"processo\s+judicial\s+eletronico",   # tela inicial/login do PJe
+    r"detalhe\s+do\s+processo",            # página de detalhe de autos
+    r"consulta\s+processual",              # tela de consulta genérica
+    r"acesso\s+externo",                   # portal de acesso externo
+    r"pagina\s+inicial",                   # home page genérica
+    r"^login$",                            # tela de login pura
+    r"acesso\s+ao\s+sistema",              # tela de acesso ao sistema
+    r"portal\s+do\s+advogado",            # portal de serviços do advogado
+    r"portal\s+e.?processo",              # variações do portal e-processo
+    r"peticionamento\s+eletronico",        # tela de peticionamento
+)

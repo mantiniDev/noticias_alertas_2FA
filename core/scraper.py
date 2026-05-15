@@ -1,5 +1,6 @@
 # core/scraper.py
 import feedparser
+import re
 import urllib.parse
 from datetime import datetime, timedelta
 import logging
@@ -8,9 +9,21 @@ from config.settings import (
     TRIBUNAIS, FONTES_OFICIAIS,
     TERMOS_ESPECIFICOS, TERMOS_FORTES_TI, TERMOS_BLOQUEADOS,
     DIAS_JANELA, LOTE_DOMINIOS, LOTE_SIGLAS, LOTE_TERMOS, TITULO_MIN_CHARS,
+    TITULOS_PAGINAS_GENERICAS,
 )
-from core.filter import avaliar_noticia
+from core.filter import avaliar_noticia, remover_acentos
 from core.database import verificar_status_noticia, salvar_auditoria
+
+# ── Padrões para detecção de páginas de sistema (não-notícias) ────────────────
+# Fonte com aparência de domínio puro: sem espaços, contém pontos.
+# Ex: "prd.tjrj.pje.jus.br"  (domínio)  vs  "TJRJ Notícias"  (fonte legítima)
+_RE_FONTE_DOMINIO = re.compile(r'^[\w][\w.-]+\.[a-z]{2,6}(\.[a-z]{2})?$', re.IGNORECASE)
+
+# Títulos de telas de sistema — compilados a partir de settings.py
+_RE_TITULO_SISTEMA = re.compile(
+    "(" + "|".join(TITULOS_PAGINAS_GENERICAS) + ")",
+    re.IGNORECASE,
+)
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +159,24 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         # Ex: "- tjrj.jus.br" ou "tjsp.jus.br" — menos de 15 chars úteis após remover a fonte.
         titulo_util = titulo.replace(f"- {fonte}", "").replace(fonte, "").strip(" -–")
         if len(titulo_util) < TITULO_MIN_CHARS:
+            links_ja_coletados.add(link)
+            continue
+
+        # ── Guarda contra páginas de sistema indexadas pelo Google ──────────
+        # Quando o Google News indexa uma tela do PJe (login, detalhe de processo,
+        # consulta processual…) em vez de uma notícia real, o campo "fonte" vem como
+        # um domínio puro (ex: "prd.tjrj.pje.jus.br") e o título é o nome genérico
+        # da tela.  Nenhum termo de bloqueio cobre esses casos, mas "pje" aparece
+        # no resumo (vindo do próprio domínio), fazendo a notícia ser aprovada como
+        # "Aprovado (Resumo)" — o que é um falso positivo.
+        # Condição de descarte: fonte parece domínio puro E título bate em padrão
+        # de tela de sistema.
+        titulo_normalizado = remover_acentos(titulo_util.lower())
+        if _RE_FONTE_DOMINIO.match(fonte) and _RE_TITULO_SISTEMA.search(titulo_normalizado):
+            log.debug(
+                "Página de sistema descartada: fonte='%s' | título='%s'",
+                fonte, titulo_util[:80],
+            )
             links_ja_coletados.add(link)
             continue
 
