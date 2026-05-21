@@ -4,8 +4,11 @@ Envia os resultados brutos dos scrapers para o Google Sheets
 via Apps Script webhook (sem service account, sem credenciais Google).
 
 Configuração:
-  1. Siga as instruções em apps_script.js para publicar o web app na planilha.
-  2. Copie a URL gerada e salve como secret SHEETS_WEBHOOK_URL no GitHub Actions.
+  1. Abra o editor do Apps Script na planilha e cole o conteúdo de apps_script.js.
+  2. Crie um novo deployment:
+       Implantações > Gerenciar implantações > Nova implantação
+       Tipo: App da Web | Executar como: Eu | Quem tem acesso: Qualquer pessoa
+  3. Copie a URL gerada e salve como secret SHEETS_WEBHOOK_URL no GitHub Actions.
      (localmente: export SHEETS_WEBHOOK_URL="https://script.google.com/macros/s/...")
 
 Comportamento: append — cada execução adiciona linhas ao final da aba,
@@ -22,40 +25,6 @@ log = logging.getLogger(__name__)
 
 WEBHOOK_URL_ENV = "SHEETS_WEBHOOK_URL"
 BATCH_SIZE = 200   # linhas por requisição (limite seguro do Apps Script)
-
-
-def _post_seguindo_redirect(url: str, data: dict, timeout: int = 60, max_hops: int = 8) -> requests.Response:
-    """Google Apps Script redireciona POST para script.googleusercontent.com.
-
-    O comportamento padrão de requests.post() é seguir o redirect, mas ele
-    muda automaticamente o método de POST para GET (conforme RFC 7231 §6.4.3),
-    fazendo com que doGet() seja invocado ao invés de doPost() — o corpo
-    da resposta vem vazio ou é HTML de erro.
-
-    Esta função itera por toda a cadeia de redirecionamentos re-enviando
-    sempre como POST, preservando o body JSON em cada salto.
-    """
-    for hop in range(max_hops):
-        log.debug("[Sheets] POST hop %d → %s", hop + 1, url)
-        resp = requests.post(url, json=data, allow_redirects=False, timeout=30)
-        log.debug("[Sheets] Resposta hop %d: status=%d", hop + 1, resp.status_code)
-
-        if resp.status_code in (301, 302, 303, 307, 308):
-            next_url = resp.headers.get("Location")
-            if not next_url:
-                log.warning("[Sheets] Redirect %d sem Location header — usando URL original.", resp.status_code)
-                break
-            log.debug("[Sheets] Redirect %d → %s", resp.status_code, next_url)
-            url = next_url
-        else:
-            # Status final (200, 4xx, 5xx) — retorna a resposta
-            return resp
-
-    raise RuntimeError(
-        f"Muitos redirecionamentos ao chamar o Apps Script (>{max_hops} hops). "
-        "Verifique se a URL do SHEETS_WEBHOOK_URL está correta."
-    )
-
 
 COLUNAS = [
     "Titulo",
@@ -100,13 +69,13 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
         origem = n.get("origem", "Direto" if "Scraper Direto" in fonte else "RSS")
 
         linhas.append([
-            n.get("titulo", ""),
-            n.get("link", ""),
+            n.get("titulo", "") or "",
+            n.get("link", "") or "",
             data_pub,
-            fonte,
-            n.get("resumo", ""),
-            n.get("termo_buscado", ""),
-            origem,
+            fonte or "",
+            n.get("resumo", "") or "",
+            n.get("termo_buscado", "") or "",
+            origem or "",
             data_captura,
         ])
 
@@ -120,33 +89,38 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
 
         log.info("[Sheets] Enviando batch %d/%d (%d linhas)...", batch_num, n_batches, len(batch))
 
-        resp = _post_seguindo_redirect(url, {"rows": batch})
+        # requests.post() segue o redirect 302 do Apps Script automaticamente,
+        # convertendo POST→GET para buscar a resposta pre-computada no endpoint /echo.
+        # Isso é o comportamento correto — não altere allow_redirects.
+        resp = requests.post(url, json={"rows": batch}, timeout=60)
         resp.raise_for_status()
 
         body = resp.text.strip()
-        log.debug("[Sheets] Resposta Apps Script (primeiros 300 chars): %r", body[:300])
+        log.debug("[Sheets] Corpo da resposta (primeiros 300 chars): %r", body[:300])
 
         if not body:
             raise RuntimeError(
                 f"Apps Script retornou resposta vazia no batch {batch_num}. "
-                "Verifique se o web app está publicado com acesso anônimo."
+                "Verifique se o web app está publicado com acesso anônimo (apps_script.js)."
             )
 
         try:
             resultado = resp.json()
         except Exception as exc:
             raise RuntimeError(
-                f"Apps Script retornou resposta inválida (não-JSON) no batch {batch_num}. "
+                f"Apps Script retornou resposta não-JSON no batch {batch_num}. "
                 f"Status HTTP: {resp.status_code}. "
-                f"Corpo recebido (primeiros 400 chars): {body[:400]!r}"
+                f"Corpo (primeiros 500 chars): {body[:500]!r}"
             ) from exc
 
         if resultado.get("status") != "ok":
             raise RuntimeError(
-                f"Apps Script retornou erro no batch {batch_num}: {resultado.get('message')}"
+                f"Apps Script reportou erro no batch {batch_num}: "
+                f"{resultado.get('message', resultado)}"
             )
 
         total_inserido += resultado.get("inserted", len(batch))
+        log.info("[Sheets] Batch %d/%d: %d linhas inseridas.", batch_num, n_batches, resultado.get("inserted", len(batch)))
 
     log.info("[Sheets] Total inserido: %d linhas.", total_inserido)
     return total_inserido
