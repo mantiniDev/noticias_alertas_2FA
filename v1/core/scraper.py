@@ -127,7 +127,7 @@ def _parse_feed_com_retry(url: str, tentativas: int = 3) -> feedparser.FeedParse
     return feedparser.FeedParserDict(entries=[])
 
 
-def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias):
+def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=None, termo=""):
     feed = _parse_feed_com_retry(url_rss)
     for entry in feed.entries:
 
@@ -188,6 +188,10 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
             'fonte': fonte,
         }
 
+        # Coleta bruta para Google Sheets (antes do filtro e banco)
+        if brutas is not None:
+            brutas.append({**noticia_bruta, 'origem': 'RSS', 'termo_buscado': termo})
+
         # Chave normalizada para deduplicação por conteúdo (cross-run)
         titulo_chave = normalizar_titulo_chave(titulo)
 
@@ -219,7 +223,7 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         links_ja_coletados.add(link)
 
 
-def buscar_noticias_semanais() -> list[dict]:
+def buscar_noticias_semanais(brutas: list | None = None) -> list[dict]:
     todas_noticias: list[dict] = []
     links_ja_coletados: set[str] = set()
     data_limite = datetime.now() - timedelta(days=DIAS_JANELA)
@@ -253,7 +257,7 @@ def buscar_noticias_semanais() -> list[dict]:
                 filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
                 query_final = f"{query_termos} AND {query_tribunais} AND {filtro_dominio}"
                 url_rss = construir_url_rss(query_final, data_limite)
-                extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+                extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=nome_grupo)
                 time.sleep(1.5)
 
     # ── FASE 2: TERMOS_ESPECIFICOS (frases exatas) × domínios ────────
@@ -272,7 +276,8 @@ def buscar_noticias_semanais() -> list[dict]:
             filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
             query_final = f"{query_frases} AND {filtro_dominio}"
             url_rss = construir_url_rss(query_final, data_limite)
-            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            termo_repr = " | ".join(t.strip('"') for t in lote_termos[:2])
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=f"especifico: {termo_repr}")
             time.sleep(1.5)
 
     # ── FASE 3: TERMOS_FORTES_TI sem filtro de domínio ───────────────
@@ -293,7 +298,8 @@ def buscar_noticias_semanais() -> list[dict]:
             query_tribunais = "(" + " OR ".join(f'"{s}"' for s in lote_siglas) + ")"
             query_final = f"{query_fortes} AND {query_tribunais}"
             url_rss = construir_url_rss(query_final, data_limite)
-            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            termo_repr = " | ".join(lote_fortes[:2])
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=f"forte: {termo_repr}")
             time.sleep(1.5)
 
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)

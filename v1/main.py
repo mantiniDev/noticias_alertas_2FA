@@ -17,6 +17,7 @@ from datetime import datetime, timedelta
 from core.scraper import buscar_noticias_semanais
 from core.scraper_direto import buscar_noticias_direto
 from core.notifier import gerar_corpos_email, enviar_email
+from core.sheets_writer import enviar_para_sheets
 from core.database import init_db, buscar_dados_para_csv
 from core.csv_generator import gerar_csv_relatorio
 from core.pdf_generator import gerar_pdf_relatorio
@@ -70,13 +71,16 @@ if __name__ == "__main__":
     # 0. Inicializa os bancos de dados (cria tabelas se não existirem)
     init_db()
 
+    # Lista que acumula todos os itens brutos (antes do filtro) para o Sheets
+    noticias_brutas: list[dict] = []
+
     # ── Fase 1: Scraper RSS ────────────────────────────────────────────
     log.info("\n[Fase 1] Scraper RSS — Google News")
-    noticias_rss = buscar_noticias_semanais()
+    noticias_rss = buscar_noticias_semanais(brutas=noticias_brutas)
 
     # ── Fase 2: Scraper Direto ─────────────────────────────────────────
     log.info("\n[Fase 2] Scraper Direto — Portais dos Tribunais")
-    noticias_direto = buscar_noticias_direto()
+    noticias_direto = buscar_noticias_direto(brutas=noticias_brutas)
 
     # ── Unificação e deduplicação por link E por conteúdo ─────────────
     # Dedup por link: evita o mesmo URL duas vezes.
@@ -121,3 +125,8 @@ if __name__ == "__main__":
         anexo_path=caminho_csv,
         pdf_path=caminho_pdf,
     )
+
+    # ── Google Sheets — coleta bruta (sem filtro) ──────────────────────
+    log.info("\n[Sheets] Enviando %d itens brutos para a planilha...", len(noticias_brutas))
+    total_sheets = enviar_para_sheets(noticias_brutas)
+    log.info("[Sheets] %d linhas inseridas.", total_sheets)

@@ -1,0 +1,38 @@
+name: MAST v2 — Coleta bruta para Google Sheets
+
+on:
+  schedule:
+    - cron: "00 11 * * *"   # 11h UTC = 08h BRT (1h depois do v1)
+  workflow_dispatch:
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar dependências
+        working-directory: v2
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Instalar Chromium (Playwright)
+        working-directory: v2
+        run: playwright install chromium --with-deps
+
+      - name: Executar MAST v2
+        working-directory: v2
+        env:
+          SHEETS_WEBHOOK_URL: ${{ secrets.SHEETS_WEBHOOK_URL }}
+          PYTHONPATH: .
+        run: |
+          python main_v2.py
