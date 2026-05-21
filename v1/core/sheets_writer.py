@@ -18,8 +18,30 @@ from datetime import datetime
 
 import requests
 
+log = logging.getLogger(__name__)
+
 WEBHOOK_URL_ENV = "SHEETS_WEBHOOK_URL"
 BATCH_SIZE = 200   # linhas por requisição (limite seguro do Apps Script)
+
+
+def _post_seguindo_redirect(url: str, data: dict, timeout: int = 60) -> requests.Response:
+    """Google Apps Script redireciona POST para script.googleusercontent.com.
+
+    O comportamento padrão de requests.post() é seguir o redirect, mas ele
+    muda automaticamente o método de POST para GET (conforme RFC 7231 §6.4.3),
+    fazendo com que doGet() seja invocado ao invés de doPost() — o corpo
+    da resposta vem vazio e resp.json() lança JSONDecodeError.
+
+    Esta função intercepta o redirect e o segue explicitamente como POST,
+    preservando o body JSON em toda a cadeia de redirecionamentos.
+    """
+    resp = requests.post(url, json=data, allow_redirects=False, timeout=30)
+    if resp.status_code in (301, 302, 303, 307, 308):
+        redirect_url = resp.headers.get("Location", url)
+        log.debug("[Sheets] Redirect %d → %s", resp.status_code, redirect_url)
+        resp = requests.post(redirect_url, json=data, timeout=timeout)
+    return resp
+
 
 COLUNAS = [
     "Titulo",
@@ -31,9 +53,6 @@ COLUNAS = [
     "Origem",
     "Data Captura",
 ]
-
-log = logging.getLogger(__name__)
-
 
 def enviar_para_sheets(noticias: list[dict]) -> int:
     """
@@ -86,8 +105,15 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
 
         log.info("[Sheets] Enviando batch %d/%d (%d linhas)...", batch_num, n_batches, len(batch))
 
-        resp = requests.post(url, json={"rows": batch}, timeout=60)
+        resp = _post_seguindo_redirect(url, {"rows": batch})
         resp.raise_for_status()
+
+        body = resp.text.strip()
+        if not body:
+            raise RuntimeError(
+                f"Apps Script retornou resposta vazia no batch {batch_num}. "
+                "Verifique se o web app está publicado corretamente e com acesso anônimo."
+            )
 
         resultado = resp.json()
         if resultado.get("status") != "ok":
