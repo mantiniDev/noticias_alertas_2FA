@@ -2,11 +2,15 @@
 """
 Orquestrador principal do MAST.
 
-Fase 1 — Scraper RSS (Google News)   → buscar_noticias_semanais()
-Fase 2 — Scraper Direto (tribunais)  → buscar_noticias_direto()
+Fase 1 — Scraper RSS (Google News)       → buscar_noticias_semanais()
+Fase 2 — Scraper Direto (tribunais)      → buscar_noticias_direto()
+Fase 3 — Notícias Expandidas (34 fontes) → buscar_noticias_fontes()
 
-Os resultados são unificados, deduplicados por link e enviados
-em um único e-mail com CSV e PDF de auditoria anexados.
+Fases 1+2 são unificadas, deduplicadas e compõem a seção de alertas
+do e-mail. A Fase 3 é exibida em seção separada, agrupada por categoria
+(Sistemas/CNJ, Tribunais Superiores, TJEs, TRFs, TRTs).
+CSV e PDF de auditoria são anexados ao e-mail (Fases 1+2 apenas).
+Google Sheets recebe todos os itens brutos das Fases 1+2.
 """
 
 import logging
@@ -15,7 +19,7 @@ import os
 from datetime import datetime, timedelta
 
 from core.scraper import buscar_noticias_semanais
-from core.scraper_direto import buscar_noticias_direto
+from core.scraper_direto import buscar_noticias_direto, buscar_noticias_fontes
 from core.notifier import gerar_corpos_email, enviar_email
 from core.sheets_writer import enviar_para_sheets
 from core.database import init_db, buscar_dados_para_csv
@@ -82,6 +86,10 @@ if __name__ == "__main__":
     log.info("\n[Fase 2] Scraper Direto — Portais dos Tribunais")
     noticias_direto = buscar_noticias_direto(brutas=noticias_brutas)
 
+    # ── Fase 3: Notícias Expandidas ────────────────────────────────────
+    log.info("\n[Fase 3] Notícias Expandidas — 34 fontes por categoria")
+    noticias_fontes = buscar_noticias_fontes()   # dict[grupo, list]
+
     # ── Unificação e deduplicação por link E por conteúdo ─────────────
     # Dedup por link: evita o mesmo URL duas vezes.
     # Dedup por título: evita a mesma notícia com URLs diferentes
@@ -111,17 +119,20 @@ if __name__ == "__main__":
     caminho_pdf = gerar_pdf_relatorio(dados_banco)
 
     # ── Log de resumo ──────────────────────────────────────────────────
+    total_fontes = sum(len(v) for v in noticias_fontes.values())
     log.info("\n%s", "─" * 60)
-    log.info("  Notícias RSS aprovadas    : %d", len(noticias_rss))
-    log.info("  Notícias Direto aprovadas : %d", len(noticias_direto))
-    log.info("  Total unificado           : %d", len(noticias_unificadas))
+    log.info("  Notícias RSS aprovadas      : %d", len(noticias_rss))
+    log.info("  Notícias Direto aprovadas   : %d", len(noticias_direto))
+    log.info("  Total alertas (Fases 1+2)   : %d", len(noticias_unificadas))
+    log.info("  Notícias Fontes (Fase 3)    : %d", total_fontes)
+    log.info("  TOTAL GERAL                 : %d", len(noticias_unificadas) + total_fontes)
     log.info("%s\n", "─" * 60)
 
     # ── E-mail com CSV + PDF anexados ──────────────────────────────────
-    texto, html = gerar_corpos_email(noticias_unificadas)
+    texto, html = gerar_corpos_email(noticias_unificadas, noticias_fontes)
     enviar_email(
         texto, html,
-        len(noticias_unificadas),
+        len(noticias_unificadas) + total_fontes,
         anexo_path=caminho_csv,
         pdf_path=caminho_pdf,
     )

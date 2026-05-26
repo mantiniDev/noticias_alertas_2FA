@@ -1,18 +1,31 @@
 # core/scraper_direto.py
 """
-Motor secundário do MAST — varredura direta das páginas de indisponibilidade
-dos 10 tribunais prioritários, sem depender de indexadores de busca.
+Motor secundário do MAST — dois subsistemas independentes de varredura direta.
 
-Estratégia de coleta:
-  1. requests + BeautifulSoup  (rápido, sem overhead)
-  2. Playwright headless        (fallback automático para SPAs com JS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Subsistema 1 — TRIBUNAIS_DIRETO  (10 fontes originais)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Varredura de páginas de INDISPONIBILIDADE dos 10 tribunais
+  prioritários, com parsers especializados por tribunal.
+  Função pública: buscar_noticias_direto()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ Subsistema 2 — FONTES_NOTICIAS  (34 fontes expandidas)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Varredura de páginas de NOTÍCIAS, NORMATIVOS e RELEASES de:
+    • Sistemas / CNJ
+    • Tribunais Superiores (STF, STJ, TST, CSJT)
+    • Tribunais de Justiça Estaduais (TJEs)
+    • Tribunais Regionais Federais (TRFs)
+    • Tribunais Regionais do Trabalho (TRTs)
+  Resultados agrupados por categoria.
+  Função pública: buscar_noticias_fontes()
 
 Integração:
   - Usa verificar_status_noticia() e salvar_auditoria() do database.py
     para deduplicação e persistência — mesma lógica do scraper RSS.
   - Usa avaliar_noticia() do filter.py para classificar cada item.
-  - Retorna lista no mesmo formato que buscar_noticias_semanais(),
-    permitindo que main.py una os resultados sem distinção.
+  - Ambas retornam listas no mesmo formato base, prontas para main.py.
 """
 
 import logging
@@ -46,9 +59,10 @@ HEADERS = {
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 
-# ---------------------------------------------------------------------------
-# Tribunais-alvo com estratégias de parse
-# ---------------------------------------------------------------------------
+# ===========================================================================
+# SUBSISTEMA 1 — TRIBUNAIS_DIRETO (10 fontes originais — NÃO ALTERAR)
+# Foco: páginas de indisponibilidade com parsers especializados por tribunal
+# ===========================================================================
 TRIBUNAIS_DIRETO = [
     {
         "acronym": "TJTO",
@@ -127,8 +141,337 @@ TRIBUNAIS_DIRETO = [
     },
 ]
 
+# ===========================================================================
+# SUBSISTEMA 2 — FONTES_NOTICIAS (34 fontes expandidas)
+# Foco: notícias institucionais, normativos e releases por categoria
+#
+# Campos obrigatórios: nome, acronym, url, tipo, grupo, parser, base_url
+# Campos opcionais  : force_playwright, wait_selector, extra_wait, vpn_required
+# ===========================================================================
+FONTES_NOTICIAS = [
+
+    # ── Sistemas e CNJ ──────────────────────────────────────────────────────
+    {
+        "nome": "Telegram - PJe News",
+        "acronym": "PJeNews",
+        "url": "https://t.me/s/pjenews",
+        "tipo": "Notícias PJe",
+        "grupo": "Sistemas-CNJ",
+        "parser": "telegram",
+        "base_url": "https://t.me",
+        "force_playwright": True,
+        "wait_selector": ".tgme_widget_message_wrap",
+        "extra_wait": 3,
+    },
+    {
+        "nome": "PJe Legacy - Notas da Versão",
+        "acronym": "PJeDocs",
+        "url": "https://docs.pje.jus.br/servicos-negociais/servico-pje-legacy/notas-da-versao",
+        "tipo": "Release Notes",
+        "grupo": "Sistemas-CNJ",
+        "parser": "generic_news",
+        "base_url": "https://docs.pje.jus.br",
+    },
+    {
+        "nome": "CNJ - Notícias PDPJ-Br",
+        "acronym": "CNJ-PDPJ",
+        "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/plataforma-digital-do-poder-judiciario-brasileiro-pdpj-br/noticias/",
+        "tipo": "Notícias",
+        "grupo": "Sistemas-CNJ",
+        "parser": "generic_news",
+        "base_url": "https://www.cnj.jus.br",
+    },
+    {
+        "nome": "CNJ - Notícias Justiça 4.0",
+        "acronym": "CNJ-J40",
+        "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/noticias/",
+        "tipo": "Notícias",
+        "grupo": "Sistemas-CNJ",
+        "parser": "generic_news",
+        "base_url": "https://www.cnj.jus.br",
+    },
+    {
+        "nome": "CNJ - Atos Normativos",
+        "acronym": "CNJ-Norm",
+        "url": "https://www.cnj.jus.br/atos_normativos/",
+        "tipo": "Normativos",
+        "grupo": "Sistemas-CNJ",
+        "parser": "generic_news",
+        "base_url": "https://www.cnj.jus.br",
+    },
+
+    # ── Tribunais Superiores e Conselhos ────────────────────────────────────
+    {
+        "nome": "STF - Notícias",
+        "acronym": "STF",
+        "url": "https://noticias.stf.jus.br/",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Superiores",
+        "parser": "generic_news",
+        "base_url": "https://noticias.stf.jus.br",
+    },
+    {
+        "nome": "STJ - Últimas Notícias",
+        "acronym": "STJ",
+        "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Superiores",
+        "parser": "generic_news",
+        "base_url": "https://www.stj.jus.br",
+    },
+    {
+        "nome": "TST - Notícias",
+        "acronym": "TST",
+        "url": "https://www.tst.jus.br/noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Superiores",
+        "parser": "generic_news",
+        "base_url": "https://www.tst.jus.br",
+    },
+    {
+        "nome": "CSJT - Normativos",
+        "acronym": "CSJT-Norm",
+        "url": "https://www.csjt.jus.br/web/csjt/normativos",
+        "tipo": "Normativos",
+        "grupo": "Tribunais-Superiores",
+        "parser": "generic_news",
+        "base_url": "https://www.csjt.jus.br",
+    },
+    {
+        "nome": "CSJT - Legislação e Atos",
+        "acronym": "CSJT-Leg",
+        "url": "https://www.csjt.jus.br/web/csjt/legislacao-atos",
+        "tipo": "Normativos",
+        "grupo": "Tribunais-Superiores",
+        "parser": "generic_news",
+        "base_url": "https://www.csjt.jus.br",
+    },
+
+    # ── Tribunais de Justiça Estaduais ──────────────────────────────────────
+    {
+        "nome": "TJSP - Notícias eproc",
+        "acronym": "TJSP-Eproc",
+        "url": "https://www.tjsp.jus.br/eproc/Noticias",
+        "tipo": "Notícias eproc",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "tjsp",
+        "base_url": "https://www.tjsp.jus.br",
+    },
+    {
+        "nome": "TJSP - Notícias Gerais",
+        "acronym": "TJSP",
+        "url": "https://www.tjsp.jus.br/Noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjsp.jus.br",
+    },
+    {
+        "nome": "TJSP - Comunicados (Precatórios)",
+        "acronym": "TJSP-Prec",
+        "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85",
+        "tipo": "Comunicados",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "tjsp",
+        "base_url": "https://www.tjsp.jus.br",
+    },
+    {
+        "nome": "TJMG - Notícias",
+        "acronym": "TJMG",
+        "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjmg.jus.br",
+    },
+    {
+        "nome": "TJMG - Atos Normativos",
+        "acronym": "TJMG-Norm",
+        "url": "https://www.tjmg.jus.br/portal-tjmg/atos-normativos/",
+        "tipo": "Normativos",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "tjmg",
+        "base_url": "https://www.tjmg.jus.br",
+    },
+    {
+        "nome": "TJRJ - Notícias",
+        "acronym": "TJRJ",
+        "url": "https://www.tjrj.jus.br/web/guest/noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjrj.jus.br",
+    },
+    {
+        "nome": "TJPR - Notícias",
+        "acronym": "TJPR",
+        "url": "https://www.tjpr.jus.br/noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "tjpr",
+        "base_url": "https://www.tjpr.jus.br",
+    },
+    {
+        "nome": "TJPR - Legislação e Atos Normativos",
+        "acronym": "TJPR-Norm",
+        "url": "https://www.tjpr.jus.br/legislacao-atos-normativos",
+        "tipo": "Normativos",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjpr.jus.br",
+    },
+    {
+        "nome": "TJRS - Notícias",
+        "acronym": "TJRS",
+        "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjrs.jus.br",
+    },
+    {
+        "nome": "TJRS - Publicações Administrativas",
+        "acronym": "TJRS-Adm",
+        "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/",
+        "tipo": "Normativos",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjrs.jus.br",
+    },
+    {
+        "nome": "TJBA - Agência de Notícias",
+        "acronym": "TJBA",
+        "url": "https://www.tjba.jus.br/portal/agencia-de-noticias/",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjba.jus.br",
+    },
+
+    # ── Tribunais Regionais Federais ─────────────────────────────────────────
+    {
+        "nome": "TRF1 - Notícias",
+        "acronym": "TRF1",
+        "url": "https://www.trf1.jus.br/trf1/noticias/",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://www.trf1.jus.br",
+    },
+    {
+        "nome": "TRF2 - Portal",
+        "acronym": "TRF2",
+        "url": "https://www.trf2.jus.br/",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://www.trf2.jus.br",
+    },
+    {
+        "nome": "TRF3 - Últimas Notícias",
+        "acronym": "TRF3",
+        "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://web.trf3.jus.br",
+    },
+    {
+        "nome": "TRF4 - Notícias",
+        "acronym": "TRF4",
+        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=noticia_portal",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://www.trf4.jus.br",
+    },
+    {
+        "nome": "TRF4 - Atos Normativos",
+        "acronym": "TRF4-Norm",
+        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=ato_normativo_pesquisar",
+        "tipo": "Normativos",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://www.trf4.jus.br",
+    },
+    {
+        "nome": "TRF5 - Notícias",
+        "acronym": "TRF5",
+        "url": "https://www.trf5.jus.br/index.php/noticias",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://www.trf5.jus.br",
+    },
+    {
+        "nome": "TRF6 - Notícias",
+        "acronym": "TRF6",
+        "url": "https://portal.trf6.jus.br/noticias/",
+        "tipo": "Notícias",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://portal.trf6.jus.br",
+    },
+    {
+        "nome": "TRF6 - Atos Normativos",
+        "acronym": "TRF6-Norm",
+        "url": "https://portal.trf6.jus.br/atos-normativos/",
+        "tipo": "Normativos",
+        "grupo": "TRFs",
+        "parser": "generic_news",
+        "base_url": "https://portal.trf6.jus.br",
+    },
+
+    # ── Tribunais Regionais do Trabalho ──────────────────────────────────────
+    {
+        "nome": "TRT1 - Últimas Notícias",
+        "acronym": "TRT1",
+        "url": "https://www.trt1.jus.br/ultimas-noticias",
+        "tipo": "Notícias",
+        "grupo": "TRTs",
+        "parser": "generic_news",
+        "base_url": "https://www.trt1.jus.br",
+    },
+    {
+        "nome": "TRT1 - Biblioteca Digital (Atos)",
+        "acronym": "TRT1-Bib",
+        "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6",
+        "tipo": "Normativos",
+        "grupo": "TRTs",
+        "parser": "generic_table",
+        "base_url": "https://bibliotecadigital.trt1.jus.br",
+    },
+    {
+        "nome": "TRT2 - Notícias",
+        "acronym": "TRT2",
+        "url": "https://ww2.trt2.jus.br/noticias/noticias",
+        "tipo": "Notícias",
+        "grupo": "TRTs",
+        "parser": "generic_news",
+        "base_url": "https://ww2.trt2.jus.br",
+    },
+    {
+        "nome": "TRT3 - Notícias Institucionais",
+        "acronym": "TRT3",
+        "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais",
+        "tipo": "Notícias",
+        "grupo": "TRTs",
+        "parser": "generic_news",
+        "base_url": "https://portal.trt3.jus.br",
+    },
+    {
+        "nome": "TRT4 - Notícias",
+        "acronym": "TRT4",
+        "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0",
+        "tipo": "Notícias",
+        "grupo": "TRTs",
+        "parser": "generic_news",
+        "base_url": "https://www.trt4.jus.br",
+    },
+]
+
 # ---------------------------------------------------------------------------
-# Camada de fetch
+# Camada de fetch (compartilhada pelos dois subsistemas)
 # ---------------------------------------------------------------------------
 
 def _fetch_requests(url: str):
@@ -194,16 +537,16 @@ def _fetch_playwright(url: str, wait_selector: str = None, extra_wait: int = 3):
         return None
 
 
-def fetch_page(tribunal: dict):
+def fetch_page(fonte: dict):
     """
-    Orquestra a tentativa de fetch.
+    Orquestra a tentativa de fetch para qualquer dict de fonte.
     force_playwright=True → vai direto pro Playwright (SPA conhecida).
     Caso contrário tenta requests; se retornar vazio, cai para Playwright.
     """
-    url             = tribunal["url"]
-    force_playwright = tribunal.get("force_playwright", False)
-    wait_selector   = tribunal.get("wait_selector")
-    extra_wait      = tribunal.get("extra_wait", 3)
+    url              = fonte["url"]
+    force_playwright = fonte.get("force_playwright", False)
+    wait_selector    = fonte.get("wait_selector")
+    extra_wait       = fonte.get("extra_wait", 3)
 
     if force_playwright:
         log.info("  → Playwright forçado (SPA).")
@@ -232,7 +575,7 @@ def _abs(href: str, base_url: str) -> str:
     return base_url.rstrip("/") + "/" + href.lstrip("/")
 
 # ---------------------------------------------------------------------------
-# Parsers por tribunal
+# Parsers — Subsistema 1 (indisponibilidades — originais)
 # ---------------------------------------------------------------------------
 
 def parse_generic_news(soup, acronym, base_url):
@@ -472,8 +815,43 @@ def parse_tjpr(soup, acronym, base_url):
     return results
 
 
-# Mapa de parsers
+# ---------------------------------------------------------------------------
+# Parsers — Subsistema 2 (notícias expandidas — novos)
+# ---------------------------------------------------------------------------
+
+def parse_telegram(soup, acronym, base_url):
+    """
+    Canal Telegram via preview web (t.me/s/channel).
+    Extrai texto e link de cada mensagem do canal.
+    Requer Playwright para renderização (JS obrigatório).
+    """
+    results = []
+    # Cada mensagem fica em .tgme_widget_message_wrap
+    messages = soup.select(".tgme_widget_message_wrap")
+    if not messages:
+        # Fallback: tenta qualquer elemento com texto substancial
+        messages = soup.select(".tgme_widget_message")
+
+    for msg in messages[:MAX_ITEMS]:
+        text_el = msg.select_one(".tgme_widget_message_text")
+        if not text_el:
+            continue
+        titulo = _txt(text_el)
+        if len(titulo) < 20:
+            continue
+        # Link canônico da mensagem (botão de data/hora)
+        a_date = msg.select_one("a.tgme_widget_message_date")
+        link = _abs(a_date.get("href", "") if a_date else "", base_url)
+        results.append({"titulo": titulo[:250], "resumo": "", "link": link})
+
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Mapa unificado de parsers
+# ---------------------------------------------------------------------------
 PARSERS = {
+    # Subsistema 1 — indisponibilidades
     "generic_news":  parse_generic_news,
     "generic_table": parse_generic_table,
     "tjsp":          parse_tjsp,
@@ -481,14 +859,16 @@ PARSERS = {
     "tjpr":          parse_tjpr,
     "trf1":          parse_trf1,
     "trf5":          parse_trf5,
+    # Subsistema 2 — notícias expandidas
+    "telegram":      parse_telegram,
 }
 
 # ---------------------------------------------------------------------------
-# Pipeline principal
+# Helpers de montagem de notícia
 # ---------------------------------------------------------------------------
 
 def _montar_noticia_bruta(item: dict, acronym: str, name: str) -> dict:
-    """Converte o dict cru do parser para o formato padrão do MAST."""
+    """Formato padrão para o Subsistema 1 (indisponibilidades)."""
     return {
         "titulo":   item["titulo"],
         "resumo":   item.get("resumo", ""),
@@ -498,6 +878,26 @@ def _montar_noticia_bruta(item: dict, acronym: str, name: str) -> dict:
     }
 
 
+def _montar_noticia_fontes(item: dict, fonte: dict) -> dict:
+    """Formato padrão para o Subsistema 2 (notícias expandidas).
+    Inclui grupo e tipo para separação na saída do e-mail.
+    """
+    return {
+        "titulo":   item["titulo"],
+        "resumo":   item.get("resumo", ""),
+        "link":     item["link"],
+        "data_obj": datetime.now(timezone.utc).replace(tzinfo=None),
+        "fonte":    f"Notícias — {fonte['acronym']}",
+        "grupo":    fonte.get("grupo", ""),
+        "tipo":     fonte.get("tipo", ""),
+    }
+
+
+# ===========================================================================
+# Pipeline Subsistema 1 — buscar_noticias_direto()
+# (lógica original preservada sem alterações)
+# ===========================================================================
+
 def buscar_noticias_direto(brutas: list | None = None) -> list:
     """
     Ponto de entrada público — chamado pelo main.py.
@@ -505,6 +905,9 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
     Retorna lista de notícias novas no mesmo formato que
     buscar_noticias_semanais() do scraper RSS, pronta para
     ser concatenada e enviada no mesmo e-mail.
+
+    brutas: lista opcional para acumular todos os itens brutos
+            (antes do filtro) destinados ao Google Sheets.
     """
     todas_noticias = []
     links_ja_coletados = set()
@@ -553,7 +956,6 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 continue
 
             # Bloqueia o mesmo conteúdo aprovado recentemente com URL diferente
-            # (ex: RSS capturou via Google News; Direto capturou via URL do tribunal)
             if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
                 log.debug("Dedup cross-run por título (Direto): '%s'", noticia_bruta["titulo"][:80])
                 salvar_auditoria(noticia_bruta, "repetido", "Duplicata de Título (Cross-Run)", "N/A", "N/A", titulo_chave)
@@ -576,3 +978,121 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
     todas_noticias.sort(key=lambda x: x["data_obj"], reverse=True)
     print(f"\n✅ Scraper Direto finalizado — {len(todas_noticias)} notícias novas aprovadas.")
     return todas_noticias
+
+
+# ===========================================================================
+# Pipeline Subsistema 2 — buscar_noticias_fontes()
+# (notícias expandidas — 34 fontes agrupadas por categoria)
+# ===========================================================================
+
+# Labels de exibição para cada grupo
+_GRUPOS_LABEL = {
+    "Sistemas-CNJ":        "Sistemas e CNJ",
+    "Tribunais-Superiores": "Tribunais Superiores e Conselhos",
+    "Tribunais-Estaduais":  "Tribunais de Justiça Estaduais",
+    "TRFs":                 "Tribunais Regionais Federais",
+    "TRTs":                 "Tribunais Regionais do Trabalho",
+}
+
+
+def buscar_noticias_fontes() -> dict[str, list]:
+    """
+    Ponto de entrada público — chamado pelo main.py para o Subsistema 2.
+
+    Retorna um dicionário agrupado por categoria:
+    {
+        "Sistemas-CNJ":        [...],
+        "Tribunais-Superiores": [...],
+        "Tribunais-Estaduais":  [...],
+        "TRFs":                 [...],
+        "TRTs":                 [...],
+    }
+
+    Cada item da lista segue o formato padrão do MAST, com campos extras
+    "grupo" e "tipo" para uso no template do e-mail.
+    """
+    # Inicializa grupos na ordem definida
+    grupos: dict[str, list] = {g: [] for g in _GRUPOS_LABEL}
+    links_ja_coletados: set[str] = set()
+
+    total_fontes  = len(FONTES_NOTICIAS)
+    total_puladas = 0
+
+    print(f"\n{'═'*60}")
+    print("MAST — Subsistema 2: Notícias Expandidas (34 fontes)")
+    print(f"{'═'*60}")
+
+    grupo_atual = None
+    for fonte in FONTES_NOTICIAS:
+        acronym  = fonte["acronym"]
+        grupo    = fonte.get("grupo", "")
+        base_url = fonte.get("base_url", fonte["url"])
+        parser_key = fonte.get("parser", "generic_news")
+
+        # Imprime separador ao mudar de grupo
+        if grupo != grupo_atual:
+            grupo_atual = grupo
+            label = _GRUPOS_LABEL.get(grupo, grupo)
+            print(f"\n  ── {label} ──")
+
+        # Pula fontes que exigem VPN/rede interna
+        if fonte.get("vpn_required"):
+            print(f"  ⚠️  [{acronym}] Requer VPN/rede interna — ignorado.")
+            total_puladas += 1
+            continue
+
+        print(f"  ▶ [{acronym}] {fonte['url']}")
+
+        soup = fetch_page(fonte)
+        if not soup:
+            print(f"     ✗ Sem conteúdo — ignorado.")
+            continue
+
+        parser_fn    = PARSERS.get(parser_key, parse_generic_news)
+        itens_brutos = parser_fn(soup, acronym, base_url)
+        print(f"     ↳ {len(itens_brutos)} itens brutos.")
+
+        for item in itens_brutos:
+            link = item.get("link", "")
+
+            if link in links_ja_coletados:
+                continue
+            links_ja_coletados.add(link)
+
+            noticia = _montar_noticia_fontes(item, fonte)
+            titulo_chave = normalizar_titulo_chave(noticia["titulo"])
+
+            # Dedup contra o banco (Fase 1/2) — não salva auditoria da Fase 3
+            if verificar_status_noticia(link):
+                continue
+
+            if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
+                log.debug("Dedup cross-run (Fontes): '%s'", noticia["titulo"][:80])
+                continue
+
+            status, motivo, palavra, termo = avaliar_noticia(
+                noticia["titulo"],
+                noticia["resumo"],
+            )
+
+            # Fase 3 não grava no banco de auditoria — não deve aparecer no CSV/PDF
+            if status == "novo":
+                noticia["palavra_extraida"] = palavra
+                noticia["termo_base"]       = termo
+                grupos[grupo].append(noticia)
+
+    # Ordena cada grupo por data decrescente
+    for g in grupos:
+        grupos[g].sort(key=lambda x: x["data_obj"], reverse=True)
+
+    total_aprovadas = sum(len(v) for v in grupos.values())
+    print(f"\n{'═'*60}")
+    print(f"✅ Subsistema 2 finalizado — {total_aprovadas} notícias novas aprovadas")
+    print(f"   ({total_fontes - total_puladas} fontes consultadas, {total_puladas} puladas)")
+    for g, label in _GRUPOS_LABEL.items():
+        n = len(grupos[g])
+        if n:
+            print(f"   • {label}: {n}")
+    print(f"{'═'*60}")
+
+    return grupos
