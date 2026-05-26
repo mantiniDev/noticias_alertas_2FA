@@ -14,7 +14,27 @@ from config.settings import TRIBUNAIS, SMTP_TENTATIVAS
 log = logging.getLogger(__name__)
 
 
-def gerar_corpos_email(noticias: list[dict]) -> tuple[str, str]:
+_GRUPOS_LABEL = {
+    "Sistemas-CNJ":         "Sistemas e CNJ",
+    "Tribunais-Superiores": "Tribunais Superiores e Conselhos",
+    "Tribunais-Estaduais":  "Tribunais de Justiça Estaduais",
+    "TRFs":                 "Tribunais Regionais Federais",
+    "TRTs":                 "Tribunais Regionais do Trabalho",
+}
+
+_GRUPOS_COR = {
+    "Sistemas-CNJ":         "#8e44ad",
+    "Tribunais-Superiores": "#c0392b",
+    "Tribunais-Estaduais":  "#27ae60",
+    "TRFs":                 "#d35400",
+    "TRTs":                 "#16a085",
+}
+
+
+def gerar_corpos_email(
+    noticias: list[dict],
+    noticias_fontes: dict[str, list] | None = None,
+) -> tuple[str, str]:
     hoje = datetime.now().strftime("%d/%m/%Y")
     duas_dias_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
 
@@ -81,6 +101,63 @@ def gerar_corpos_email(noticias: list[dict]) -> tuple[str, str]:
             """
 
         html += "</ul>"
+
+    # ── Seção Fase 3: Notícias Expandidas por categoria ───────────────
+    total_fontes = sum(len(v) for v in (noticias_fontes or {}).values())
+    if noticias_fontes and total_fontes > 0:
+        texto_puro += "\n\n── Notícias e Normativos por Categoria ──\n"
+        html += """
+        <hr style="border: 1px solid #eee; margin-top: 30px;">
+        <h2 style="color: #2c3e50; margin-top: 20px;">
+            📰 Notícias e Normativos por Categoria
+        </h2>
+        """
+
+        for grupo, label in _GRUPOS_LABEL.items():
+            itens = noticias_fontes.get(grupo, [])
+            if not itens:
+                continue
+
+            cor = _GRUPOS_COR.get(grupo, "#7f8c8d")
+            texto_puro += f"\n[{label}]\n"
+            html += f"""
+        <h3 style="color: {cor}; margin: 20px 0 10px 0;
+                   padding-bottom: 5px; border-bottom: 2px solid {cor};">
+            {label}
+        </h3>
+        <ul style="list-style-type: none; padding: 0;">
+            """
+
+            for noticia in itens:
+                data_fmt = noticia["data_obj"].strftime("%d/%m/%Y às %H:%M")
+                tipo_badge = noticia.get("tipo", "")
+                badge_html = (
+                    f"<span style='background:{cor}; color:white; font-size:0.75em; "
+                    f"padding:2px 6px; border-radius:3px; margin-left:6px;'>"
+                    f"{tipo_badge}</span>"
+                ) if tipo_badge else ""
+
+                texto_puro += (
+                    f"  • [{tipo_badge}] {noticia['titulo']}\n"
+                    f"    Link: {noticia['link']}\n\n"
+                )
+                html += f"""
+            <li style="margin-bottom: 14px; padding: 12px;
+                        border-left: 4px solid {cor}; background-color: #fafafa;">
+                <div style="margin: 0 0 6px 0;">
+                    <a href="{noticia['link']}"
+                       style="color: #2c3e50; text-decoration: none; font-weight: 600;">
+                        {noticia['titulo']}
+                    </a>{badge_html}
+                </div>
+                <p style="margin: 0; font-size: 0.85em; color: #7f8c8d;">
+                    📅 {data_fmt} &nbsp;|&nbsp; 📰 {noticia['fonte']}
+                </p>
+            </li>
+                """
+
+            html += "</ul>"
+            texto_puro += "\n"
 
     rodape = "\n---\nEste é um e-mail automático gerado pelo MAST."
     texto_puro += rodape
