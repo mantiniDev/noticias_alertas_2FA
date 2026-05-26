@@ -1055,21 +1055,20 @@ def buscar_noticias_fontes() -> dict[str, list]:
             noticia = _montar_noticia_fontes(item, fonte)
             titulo_chave = normalizar_titulo_chave(noticia["titulo"])
 
+            # Dedup contra o banco (Fase 1/2) — não salva auditoria da Fase 3
             if verificar_status_noticia(link):
-                salvar_auditoria(noticia, "repetido", "Já Existente", "N/A", "N/A", titulo_chave)
                 continue
 
             if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
                 log.debug("Dedup cross-run (Fontes): '%s'", noticia["titulo"][:80])
-                salvar_auditoria(noticia, "repetido", "Duplicata de Título (Cross-Run)", "N/A", "N/A", titulo_chave)
                 continue
 
             status, motivo, palavra, termo = avaliar_noticia(
                 noticia["titulo"],
                 noticia["resumo"],
             )
-            salvar_auditoria(noticia, status, motivo, palavra, termo, titulo_chave)
 
+            # Fase 3 não grava no banco de auditoria — não deve aparecer no CSV/PDF
             if status == "novo":
                 noticia["palavra_extraida"] = palavra
                 noticia["termo_base"]       = termo

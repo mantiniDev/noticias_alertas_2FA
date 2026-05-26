@@ -279,13 +279,12 @@ class TestBuscarNoticiasFontes:
     Mocka fetch_page para retornar HTML simples e as funções de DB para no-op.
     """
 
-    @patch("core.scraper_direto.salvar_auditoria")
     @patch("core.scraper_direto.verificar_titulo_chave", return_value=False)
     @patch("core.scraper_direto.verificar_status_noticia", return_value=False)
     @patch("core.scraper_direto.avaliar_noticia", return_value=("novo", "Aprovado", "pje", "pje"))
     @patch("core.scraper_direto.fetch_page")
     def test_retorna_dict_com_todos_os_grupos(
-        self, mock_fetch, mock_avaliar, mock_status, mock_titulo, mock_salvar
+        self, mock_fetch, mock_avaliar, mock_status, mock_titulo
     ):
         from core.scraper_direto import buscar_noticias_fontes, _GRUPOS_LABEL
 
@@ -297,13 +296,12 @@ class TestBuscarNoticiasFontes:
         assert isinstance(resultado, dict)
         assert set(resultado.keys()) == set(_GRUPOS_LABEL.keys())
 
-    @patch("core.scraper_direto.salvar_auditoria")
     @patch("core.scraper_direto.verificar_titulo_chave", return_value=False)
     @patch("core.scraper_direto.verificar_status_noticia", return_value=False)
     @patch("core.scraper_direto.avaliar_noticia", return_value=("novo", "Aprovado", "pje", "pje"))
     @patch("core.scraper_direto.fetch_page")
     def test_cada_noticia_tem_campos_obrigatorios(
-        self, mock_fetch, mock_avaliar, mock_status, mock_titulo, mock_salvar
+        self, mock_fetch, mock_avaliar, mock_status, mock_titulo
     ):
         from core.scraper_direto import buscar_noticias_fontes
 
