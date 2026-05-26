@@ -258,9 +258,9 @@ FONTES_NOTICIAS = [
         "base_url": "https://www.tjsp.jus.br",
     },
     {
-        "nome": "TJSP - Notícias Gerais",
+        "nome": "TJSP - Notícias Tecnologia",
         "acronym": "TJSP",
-        "url": "https://www.tjsp.jus.br/Noticias",
+        "url": "https://www.tjsp.jus.br/Noticias?codigoCategoria=14",
         "tipo": "Notícias",
         "grupo": "Tribunais-Estaduais",
         "parser": "generic_news",
@@ -824,7 +824,21 @@ def parse_telegram(soup, acronym, base_url):
     Canal Telegram via preview web (t.me/s/channel).
     Extrai texto e link de cada mensagem do canal.
     Requer Playwright para renderização (JS obrigatório).
+
+    Filtros aplicados:
+    - Mensagens com menos de 80 chars são descartadas: cobrem apenas
+      links de portais genéricos (ex: "Tribunal X - PJe"), que não
+      trazem conteúdo de notícia real e geram entradas repetidas.
+    - Mensagens que seguem o padrão "Tribunal * - <sistema>" sem verbo
+      de ação são igualmente descartadas.
     """
+    import re
+    # Padrão de links genéricos de portal sem conteúdo real
+    _PADRAO_PORTAL = re.compile(
+        r"^tribunal\b.{0,60}\b[-–]\s*(pje|eproc|pdpj|saj)\s*$",
+        re.IGNORECASE,
+    )
+
     results = []
     # Cada mensagem fica em .tgme_widget_message_wrap
     messages = soup.select(".tgme_widget_message_wrap")
@@ -837,7 +851,11 @@ def parse_telegram(soup, acronym, base_url):
         if not text_el:
             continue
         titulo = _txt(text_el)
-        if len(titulo) < 20:
+        # Descarta mensagens muito curtas (links genéricos de portal)
+        if len(titulo) < 80:
+            continue
+        # Descarta mensagens que são apenas "Tribunal X - PJe/eproc/..."
+        if _PADRAO_PORTAL.match(titulo):
             continue
         # Link canônico da mensagem (botão de data/hora)
         a_date = msg.select_one("a.tgme_widget_message_date")

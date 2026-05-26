@@ -91,6 +91,14 @@ HTML_TELEGRAM = """
       <div class="tgme_widget_message_text">Curto demais.</div>
     </div>
   </div>
+  <div class="tgme_widget_message_wrap">
+    <div class="tgme_widget_message">
+      <div class="tgme_widget_message_text">Tribunal Regional do Trabalho da 14a Regiao - PJe</div>
+      <a class="tgme_widget_message_date" href="https://t.me/pjenews/452">
+        <time>2025-06-10T09:00:00+00:00</time>
+      </a>
+    </div>
+  </div>
 </body></html>
 """
 
@@ -257,8 +265,11 @@ class TestParseTelegram:
         return BeautifulSoup(HTML_TELEGRAM, "lxml")
 
     def test_extrai_mensagem_longa(self):
+        # Msg 1: 118 chars (real news) → OK
+        # Msg 2: "Curto demais." (13 chars) → descartada por min 80
+        # Msg 3: "Tribunal ... - PJe" (49 chars) → descartada por min 80
         result = parse_telegram(self._soup(), "PJeNews", "https://t.me")
-        assert len(result) == 1  # a 2ª mensagem é muito curta
+        assert len(result) == 1
 
     def test_titulo_contem_conteudo(self):
         result = parse_telegram(self._soup(), "PJeNews", "https://t.me")
@@ -267,6 +278,12 @@ class TestParseTelegram:
     def test_link_para_mensagem(self):
         result = parse_telegram(self._soup(), "PJeNews", "https://t.me")
         assert "t.me/pjenews/451" in result[0]["link"]
+
+    def test_descarta_link_generico_portal(self):
+        """Mensagens do tipo 'Tribunal X - PJe' não devem ser extraídas."""
+        result = parse_telegram(self._soup(), "PJeNews", "https://t.me")
+        titulos = [r["titulo"] for r in result]
+        assert not any("Regiao - PJe" in t for t in titulos)
 
 
 # ---------------------------------------------------------------------------
