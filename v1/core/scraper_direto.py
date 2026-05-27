@@ -2695,9 +2695,9 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
     todas_noticias = []
     links_ja_coletados = set()
 
-    print(f"\n{'─'*60}")
-    print("MAST — Motor Secundário: Scraper Direto dos Tribunais")
-    print(f"{'─'*60}")
+    log.info("\n%s", "─" * 60)
+    log.info("MAST — Motor Secundário: Scraper Direto dos Tribunais")
+    log.info("%s", "─" * 60)
 
     for tribunal in TRIBUNAIS_DIRETO:
         acronym  = tribunal["acronym"]
@@ -2705,16 +2705,16 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
         base_url = tribunal.get("base_url", tribunal["url"])
         parser_key = tribunal.get("parser", "generic_news")
 
-        print(f"▶ [{acronym}] {tribunal['url']}")
+        log.info("▶ [%s] %s", acronym, tribunal["url"])
 
         soup = fetch_page(tribunal)
         if not soup:
-            print(f"  ✗ [{acronym}] Sem conteúdo — ignorado.")
+            log.info("  ✗ [%s] Sem conteúdo — ignorado.", acronym)
             continue
 
         parser_fn = PARSERS.get(parser_key, parse_generic_news)
         itens_brutos = parser_fn(soup, acronym, base_url)
-        print(f"  ↳ {len(itens_brutos)} itens brutos coletados.")
+        log.info("  ↳ %d itens brutos coletados.", len(itens_brutos))
 
         for item in itens_brutos:
             link = item.get("link", "")
@@ -2759,7 +2759,7 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 todas_noticias.append(noticia_bruta)
 
     todas_noticias.sort(key=lambda x: x["data_obj"], reverse=True)
-    print(f"\n✅ Scraper Direto finalizado — {len(todas_noticias)} notícias novas aprovadas.")
+    log.info("\n✅ Scraper Direto finalizado — %d notícias novas aprovadas.", len(todas_noticias))
     return todas_noticias
 
 
@@ -2803,9 +2803,9 @@ def buscar_noticias_fontes() -> dict[str, list]:
     total_fontes  = len(FONTES_NOTICIAS)
     total_puladas = 0
 
-    print(f"\n{'═'*60}")
-    print(f"MAST — Subsistema 2: Notícias Expandidas ({len(FONTES_NOTICIAS)} fontes)")
-    print(f"{'═'*60}")
+    log.info("\n%s", "═" * 60)
+    log.info("MAST — Subsistema 2: Notícias Expandidas (%d fontes)", len(FONTES_NOTICIAS))
+    log.info("%s", "═" * 60)
 
     grupo_atual = None
     for fonte in FONTES_NOTICIAS:
@@ -2818,24 +2818,24 @@ def buscar_noticias_fontes() -> dict[str, list]:
         if grupo != grupo_atual:
             grupo_atual = grupo
             label = _GRUPOS_LABEL.get(grupo, grupo)
-            print(f"\n  ── {label} ──")
+            log.info("\n  ── %s ──", label)
 
         # Pula fontes que exigem VPN/rede interna
         if fonte.get("vpn_required"):
-            print(f"  ⚠️  [{acronym}] Requer VPN/rede interna — ignorado.")
+            log.info("  ⚠️  [%s] Requer VPN/rede interna — ignorado.", acronym)
             total_puladas += 1
             continue
 
-        print(f"  ▶ [{acronym}] {fonte['url']}")
+        log.info("  ▶ [%s] %s", acronym, fonte["url"])
 
         soup = fetch_page(fonte)
         if not soup:
-            print(f"     ✗ Sem conteúdo — ignorado.")
+            log.info("     ✗ Sem conteúdo — ignorado.")
             continue
 
         parser_fn    = PARSERS.get(parser_key, parse_generic_news)
         itens_brutos = parser_fn(soup, acronym, base_url)
-        print(f"     ↳ {len(itens_brutos)} itens brutos.")
+        log.info("     ↳ %d itens brutos.", len(itens_brutos))
 
         for item in itens_brutos:
             link = item.get("link", "")
@@ -2871,13 +2871,13 @@ def buscar_noticias_fontes() -> dict[str, list]:
         grupos[g].sort(key=lambda x: x["data_obj"], reverse=True)
 
     total_aprovadas = sum(len(v) for v in grupos.values())
-    print(f"\n{'═'*60}")
-    print(f"✅ Subsistema 2 finalizado — {total_aprovadas} notícias novas aprovadas")
-    print(f"   ({total_fontes - total_puladas} fontes consultadas, {total_puladas} puladas)")
+    log.info("\n%s", "═" * 60)
+    log.info("✅ Subsistema 2 finalizado — %d notícias novas aprovadas", total_aprovadas)
+    log.info("   (%d fontes consultadas, %d puladas)", total_fontes - total_puladas, total_puladas)
     for g, label in _GRUPOS_LABEL.items():
         n = len(grupos[g])
         if n:
-            print(f"   • {label}: {n}")
-    print(f"{'═'*60}")
+            log.info("   • %s: %d", label, n)
+    log.info("%s", "═" * 60)
 
     return grupos

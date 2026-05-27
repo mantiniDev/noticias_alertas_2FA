@@ -4,7 +4,7 @@ Orquestrador principal do MAST.
 
 Fase 1 — Scraper RSS (Google News)       → buscar_noticias_semanais()
 Fase 2 — Scraper Direto (tribunais)      → buscar_noticias_direto()
-Fase 3 — Notícias Expandidas (34 fontes) → buscar_noticias_fontes()
+Fase 3 — Notícias Expandidas (106 fontes) → buscar_noticias_fontes()
 
 Fases 1+2 são unificadas, deduplicadas e compõem a seção de alertas
 do e-mail. A Fase 3 é exibida em seção separada, agrupada por categoria
@@ -19,7 +19,7 @@ import os
 from datetime import datetime, timedelta
 
 from core.scraper import buscar_noticias_semanais
-from core.scraper_direto import buscar_noticias_direto, buscar_noticias_fontes
+from core.scraper_direto import buscar_noticias_direto, buscar_noticias_fontes, FONTES_NOTICIAS
 from core.notifier import gerar_corpos_email, enviar_email
 from core.sheets_writer import enviar_para_sheets
 from core.database import init_db, buscar_dados_para_csv
@@ -87,7 +87,7 @@ if __name__ == "__main__":
     noticias_direto = buscar_noticias_direto(brutas=noticias_brutas)
 
     # ── Fase 3: Notícias Expandidas ────────────────────────────────────
-    log.info("\n[Fase 3] Notícias Expandidas — 34 fontes por categoria")
+    log.info("\n[Fase 3] Notícias Expandidas — %d fontes por categoria", len(FONTES_NOTICIAS))
     noticias_fontes = buscar_noticias_fontes()   # dict[grupo, list]
 
     # ── Unificação e deduplicação por link E por conteúdo ─────────────
