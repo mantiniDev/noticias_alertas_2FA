@@ -3,18 +3,16 @@
 Motor secundário do MAST — lista unificada de fontes por tribunal.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- FONTES — Lista unificada (55 entradas, 2 pipelines)
+ FONTES — Lista unificada (28 entradas, 2 pipelines)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Cada tribunal tem até duas entradas, diferenciadas pelo campo "fase":
+  Cada entrada representa um tribunal/sistema e contém obrigatoriamente:
+    alertas  : dict | None  — fonte de indisponibilidade
+    noticias : list[dict]   — lista de fontes de notícias/normativos
 
-  fase "alertas"  → 18 fontes de INDISPONIBILIDADE por tribunal
-                    → pipeline buscar_noticias_direto()
-                    → TRIBUNAIS_DIRETO = [f for f in FONTES if f["fase"]=="alertas"]
-
-  fase "noticias" → 37 fontes de NOTÍCIAS, NORMATIVOS e RELEASES
-                    → pipeline buscar_noticias_fontes()
-                    → FONTES_NOTICIAS = [f for f in FONTES if f["fase"]=="noticias"]
-                    → agrupado por: Sistemas/CNJ, Superiores, TJEs, TRFs, TRTs
+  Listas planas derivadas:
+    TRIBUNAIS_DIRETO — 18 entradas de alertas → buscar_noticias_direto()
+    FONTES_NOTICIAS  — 37 entradas de noticias → buscar_noticias_fontes()
+                       agrupadas por: Sistemas/CNJ, Superiores, TJEs, TRFs, TRTs
 
 Integração:
   - Usa verificar_status_noticia() e salvar_auditoria() do database.py
@@ -57,609 +55,684 @@ HEADERS = {
 # ===========================================================================
 # FONTES — Lista unificada de todas as fontes de monitoramento
 #
-# Campos obrigatórios : nome, acronym, url, parser, base_url, fase, tipo, grupo
-# Campos opcionais    : force_playwright, wait_selector, extra_wait, vpn_required
+# Cada entrada representa um tribunal/sistema monitorado.
+# Campos obrigatórios: acronym, nome, grupo, alertas, noticias
 #
-# fase "alertas"  → paginas de INDISPONIBILIDADE → pipeline buscar_noticias_direto()
-# fase "noticias" → paginas de NOTICIAS/NORMATIVOS → pipeline buscar_noticias_fontes()
+# alertas : dict | None
+#   Fonte de INDISPONIBILIDADE do tribunal.
+#   None quando não há página pública de indisponibilidade.
+#   Campos obrigatórios dentro de alertas: url, parser, base_url
+#   Campos opcionais: nome, tipo, force_playwright, wait_selector, extra_wait
 #
-# Listas derivadas (retrocompatibilidade):
-#   TRIBUNAIS_DIRETO = [f for f in FONTES if f["fase"] == "alertas"]   # 18 fontes
-#   FONTES_NOTICIAS  = [f for f in FONTES if f["fase"] == "noticias"]  # 37 fontes
+# noticias : list[dict]
+#   Lista de fontes de NOTÍCIAS/NORMATIVOS do tribunal.
+#   Cada item precisa de: nome, url, parser, base_url, tipo
+#   O acronym do item herda do parent, mas pode ser sobrescrito com acronym local.
+#
+# Listas derivadas (usadas pelos dois pipelines e pelos testes):
+#   TRIBUNAIS_DIRETO = lista plana de entradas de alertas (18 fontes)
+#   FONTES_NOTICIAS  = lista plana de todas as entradas de noticias (37 fontes)
 # ===========================================================================
-FONTES = [
+FONTES: list[dict] = [
 
-    # ── Sistemas e CNJ (noticias) ──────────────────────────────────────────
+    # ── Sistemas e CNJ ────────────────────────────────────────────────────────
     {
-        "nome": "Telegram - PJe News",
         "acronym": "PJeNews",
-        "url": "https://t.me/s/pjenews",
-        "tipo": "Notícias PJe",
+        "nome": "PJe News (Telegram)",
         "grupo": "Sistemas-CNJ",
-        "parser": "telegram",
-        "base_url": "https://t.me",
-        "fase": "noticias",
-        "force_playwright": True,
-        "wait_selector": ".tgme_widget_message_wrap",
-        "extra_wait": 3,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "Telegram - PJe News",
+                "url": "https://t.me/s/pjenews",
+                "parser": "telegram",
+                "base_url": "https://t.me",
+                "tipo": "Notícias PJe",
+                "force_playwright": True,
+                "wait_selector": ".tgme_widget_message_wrap",
+                "extra_wait": 3,
+            },
+        ],
     },
     {
-        "nome": "PJe Legacy - Notas da Versão",
         "acronym": "PJeDocs",
-        "url": "https://docs.pje.jus.br/servicos-negociais/servico-pje-legacy/notas-da-versao",
-        "tipo": "Release Notes",
+        "nome": "PJe Legacy Docs",
         "grupo": "Sistemas-CNJ",
-        "parser": "generic_news",
-        "base_url": "https://docs.pje.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "PJe Legacy - Notas da Versão",
+                "url": "https://docs.pje.jus.br/servicos-negociais/servico-pje-legacy/notas-da-versao",
+                "parser": "generic_news",
+                "base_url": "https://docs.pje.jus.br",
+                "tipo": "Release Notes",
+            },
+        ],
     },
     {
-        "nome": "CNJ - Notícias PDPJ-Br",
         "acronym": "CNJ-PDPJ",
-        "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/plataforma-digital-do-poder-judiciario-brasileiro-pdpj-br/noticias/",
-        "tipo": "Notícias",
+        "nome": "CNJ - PDPJ-Br",
         "grupo": "Sistemas-CNJ",
-        "parser": "generic_news",
-        "base_url": "https://www.cnj.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "CNJ - Notícias PDPJ-Br",
+                "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/plataforma-digital-do-poder-judiciario-brasileiro-pdpj-br/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.cnj.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "CNJ - Notícias Justiça 4.0",
         "acronym": "CNJ-J40",
-        "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/noticias/",
-        "tipo": "Notícias",
+        "nome": "CNJ - Justiça 4.0",
         "grupo": "Sistemas-CNJ",
-        "parser": "generic_news",
-        "base_url": "https://www.cnj.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "CNJ - Notícias Justiça 4.0",
+                "url": "https://www.cnj.jus.br/tecnologia-da-informacao-e-comunicacao/justica-4-0/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.cnj.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "CNJ - Atos Normativos",
         "acronym": "CNJ-Norm",
-        "url": "https://www.cnj.jus.br/atos_normativos/",
-        "tipo": "Normativos",
+        "nome": "CNJ - Atos Normativos",
         "grupo": "Sistemas-CNJ",
-        "parser": "generic_news",
-        "base_url": "https://www.cnj.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "CNJ - Atos Normativos",
+                "url": "https://www.cnj.jus.br/atos_normativos/",
+                "parser": "generic_news",
+                "base_url": "https://www.cnj.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
 
-    # ── Tribunais Superiores e Conselhos (noticias) ──────────────────────────
+    # ── Tribunais Superiores e Conselhos ──────────────────────────────────────
     {
-        "nome": "STF - Notícias",
         "acronym": "STF",
-        "url": "https://noticias.stf.jus.br/",
-        "tipo": "Notícias",
+        "nome": "Supremo Tribunal Federal",
         "grupo": "Tribunais-Superiores",
-        "parser": "generic_news",
-        "base_url": "https://noticias.stf.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "STF - Notícias",
+                "url": "https://noticias.stf.jus.br/",
+                "parser": "generic_news",
+                "base_url": "https://noticias.stf.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "STJ - Últimas Notícias",
         "acronym": "STJ",
-        "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias",
-        "tipo": "Notícias",
+        "nome": "Superior Tribunal de Justiça",
         "grupo": "Tribunais-Superiores",
-        "parser": "generic_news",
-        "base_url": "https://www.stj.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "STJ - Últimas Notícias",
+                "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.stj.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TST - Notícias",
         "acronym": "TST",
-        "url": "https://www.tst.jus.br/noticias",
-        "tipo": "Notícias",
+        "nome": "Tribunal Superior do Trabalho",
         "grupo": "Tribunais-Superiores",
-        "parser": "generic_news",
-        "base_url": "https://www.tst.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TST - Notícias",
+                "url": "https://www.tst.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tst.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "CSJT - Normativos",
-        "acronym": "CSJT-Norm",
-        "url": "https://www.csjt.jus.br/web/csjt/normativos",
-        "tipo": "Normativos",
+        "acronym": "CSJT",
+        "nome": "Conselho Superior da Justiça do Trabalho",
         "grupo": "Tribunais-Superiores",
-        "parser": "generic_news",
-        "base_url": "https://www.csjt.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "CSJT - Legislação e Atos",
-        "acronym": "CSJT-Leg",
-        "url": "https://www.csjt.jus.br/web/csjt/legislacao-atos",
-        "tipo": "Normativos",
-        "grupo": "Tribunais-Superiores",
-        "parser": "generic_news",
-        "base_url": "https://www.csjt.jus.br",
-        "fase": "noticias",
+        "alertas": None,
+        "noticias": [
+            {
+                "acronym": "CSJT-Norm",
+                "nome": "CSJT - Normativos",
+                "url": "https://www.csjt.jus.br/web/csjt/normativos",
+                "parser": "generic_news",
+                "base_url": "https://www.csjt.jus.br",
+                "tipo": "Normativos",
+            },
+            {
+                "acronym": "CSJT-Leg",
+                "nome": "CSJT - Legislação e Atos",
+                "url": "https://www.csjt.jus.br/web/csjt/legislacao-atos",
+                "parser": "generic_news",
+                "base_url": "https://www.csjt.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
 
     # ── Tribunais de Justiça Estaduais ────────────────────────────────────────
-    # TJSP
     {
-        "nome": "TJSP - Indisponibilidade",
         "acronym": "TJSP",
-        "url": "https://www.tjsp.jus.br/Indisponibilidade/Comunicados",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça de São Paulo",
         "grupo": "Tribunais-Estaduais",
-        "parser": "tjsp",
-        "base_url": "https://www.tjsp.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TJSP - Indisponibilidade",
+            "url": "https://www.tjsp.jus.br/Indisponibilidade/Comunicados",
+            "parser": "tjsp",
+            "base_url": "https://www.tjsp.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "acronym": "TJSP-Eproc",
+                "nome": "TJSP - Notícias eproc",
+                "url": "https://www.tjsp.jus.br/eproc/Noticias",
+                "parser": "tjsp",
+                "base_url": "https://www.tjsp.jus.br",
+                "tipo": "Notícias eproc",
+            },
+            {
+                "nome": "TJSP - Notícias Tecnologia",
+                "url": "https://www.tjsp.jus.br/Noticias?codigoCategoria=14",
+                "parser": "generic_news",
+                "base_url": "https://www.tjsp.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TJSP-Prec",
+                "nome": "TJSP - Comunicados (Precatórios)",
+                "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85",
+                "parser": "tjsp",
+                "base_url": "https://www.tjsp.jus.br",
+                "tipo": "Comunicados",
+            },
+        ],
     },
     {
-        "nome": "TJSP - Notícias eproc",
-        "acronym": "TJSP-Eproc",
-        "url": "https://www.tjsp.jus.br/eproc/Noticias",
-        "tipo": "Notícias eproc",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "tjsp",
-        "base_url": "https://www.tjsp.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TJSP - Notícias Tecnologia",
-        "acronym": "TJSP",
-        "url": "https://www.tjsp.jus.br/Noticias?codigoCategoria=14",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjsp.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TJSP - Comunicados (Precatórios)",
-        "acronym": "TJSP-Prec",
-        "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85",
-        "tipo": "Comunicados",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "tjsp",
-        "base_url": "https://www.tjsp.jus.br",
-        "fase": "noticias",
-    },
-    # TJRS
-    {
-        "nome": "TJRS - Indisponibilidade",
         "acronym": "TJRS",
-        "url": "https://www.tjrs.jus.br/novo/processos-e-servicos/consultas-processuais/certidoes-indisponibilidade/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça do Rio Grande do Sul",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_table",
-        "base_url": "https://www.tjrs.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TJRS - Indisponibilidade",
+            "url": "https://www.tjrs.jus.br/novo/processos-e-servicos/consultas-processuais/certidoes-indisponibilidade/",
+            "parser": "generic_table",
+            "base_url": "https://www.tjrs.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJRS - Notícias",
+                "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.tjrs.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TJRS-Adm",
+                "nome": "TJRS - Publicações Administrativas",
+                "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/",
+                "parser": "generic_news",
+                "base_url": "https://www.tjrs.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
     {
-        "nome": "TJRS - Notícias",
-        "acronym": "TJRS",
-        "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjrs.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TJRS - Publicações Administrativas",
-        "acronym": "TJRS-Adm",
-        "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/",
-        "tipo": "Normativos",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjrs.jus.br",
-        "fase": "noticias",
-    },
-    # TJMG
-    {
-        "nome": "TJMG - Indisponibilidade",
         "acronym": "TJMG",
-        "url": "https://www.tjmg.jus.br/pje/certidao-de-indisponibilidade/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça de Minas Gerais",
         "grupo": "Tribunais-Estaduais",
-        "parser": "tjmg",
-        "base_url": "https://www.tjmg.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TJMG - Indisponibilidade",
+            "url": "https://www.tjmg.jus.br/pje/certidao-de-indisponibilidade/",
+            "parser": "tjmg",
+            "base_url": "https://www.tjmg.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJMG - Notícias",
+                "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.tjmg.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TJMG-Norm",
+                "nome": "TJMG - Atos Normativos",
+                "url": "https://www.tjmg.jus.br/portal-tjmg/atos-normativos/",
+                "parser": "tjmg",
+                "base_url": "https://www.tjmg.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
     {
-        "nome": "TJMG - Notícias",
-        "acronym": "TJMG",
-        "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjmg.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TJMG - Atos Normativos",
-        "acronym": "TJMG-Norm",
-        "url": "https://www.tjmg.jus.br/portal-tjmg/atos-normativos/",
-        "tipo": "Normativos",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "tjmg",
-        "base_url": "https://www.tjmg.jus.br",
-        "fase": "noticias",
-    },
-    # TJPR — usa Projudi (PJe foi desativado)
-    {
-        "nome": "TJPR - Indisponibilidade Projudi",
         "acronym": "TJPR",
-        "url": "https://projudi.tjpr.jus.br/projudi/indisponibilidades.jsp",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça do Paraná",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_table",
-        "base_url": "https://projudi.tjpr.jus.br",
-        "fase": "alertas",
+        # TJPR desativou o PJe e usa Projudi como sistema principal
+        "alertas": {
+            "nome": "TJPR - Indisponibilidade Projudi",
+            "url": "https://projudi.tjpr.jus.br/projudi/indisponibilidades.jsp",
+            "parser": "generic_table",
+            "base_url": "https://projudi.tjpr.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJPR - Notícias",
+                "url": "https://www.tjpr.jus.br/noticias",
+                "parser": "tjpr",
+                "base_url": "https://www.tjpr.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TJPR-Norm",
+                "nome": "TJPR - Legislação e Atos Normativos",
+                "url": "https://www.tjpr.jus.br/legislacao-atos-normativos",
+                "parser": "generic_news",
+                "base_url": "https://www.tjpr.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
     {
-        "nome": "TJPR - Notícias",
-        "acronym": "TJPR",
-        "url": "https://www.tjpr.jus.br/noticias",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "tjpr",
-        "base_url": "https://www.tjpr.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TJPR - Legislação e Atos Normativos",
-        "acronym": "TJPR-Norm",
-        "url": "https://www.tjpr.jus.br/legislacao-atos-normativos",
-        "tipo": "Normativos",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjpr.jus.br",
-        "fase": "noticias",
-    },
-    # TJRJ
-    {
-        "nome": "TJRJ - Indisponibilidade",
         "acronym": "TJRJ",
-        "url": "https://www3.tjrj.jus.br/portalservicos/#/modindpub-principal",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça do Rio de Janeiro",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_table",
-        "base_url": "https://www3.tjrj.jus.br",
-        "fase": "alertas",
-        "force_playwright": True,
-        "wait_selector": "table, .indisponibilidade, .card",
-        "extra_wait": 4,
+        "alertas": {
+            "nome": "TJRJ - Indisponibilidade",
+            "url": "https://www3.tjrj.jus.br/portalservicos/#/modindpub-principal",
+            "parser": "generic_table",
+            "base_url": "https://www3.tjrj.jus.br",
+            "tipo": "Indisponibilidade",
+            "force_playwright": True,
+            "wait_selector": "table, .indisponibilidade, .card",
+            "extra_wait": 4,
+        },
+        "noticias": [
+            {
+                "nome": "TJRJ - Notícias",
+                "url": "https://www.tjrj.jus.br/web/guest/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tjrj.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TJRJ - Notícias",
-        "acronym": "TJRJ",
-        "url": "https://www.tjrj.jus.br/web/guest/noticias",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjrj.jus.br",
-        "fase": "noticias",
-    },
-    # TJPI
-    {
-        "nome": "TJPI - Indisponibilidade PJe",
         "acronym": "TJPI",
-        "url": "https://www.tjpi.jus.br/portaltjpi/pje/indisponibilidade-do-sistema/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça do Piauí",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjpi.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TJPI - Indisponibilidade PJe",
+            "url": "https://www.tjpi.jus.br/portaltjpi/pje/indisponibilidade-do-sistema/",
+            "parser": "generic_news",
+            "base_url": "https://www.tjpi.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJPI - Notícias",
+                "url": "https://www.tjpi.jus.br/portaltjpi/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.tjpi.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TJPI - Notícias",
-        "acronym": "TJPI",
-        "url": "https://www.tjpi.jus.br/portaltjpi/noticias/",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjpi.jus.br",
-        "fase": "noticias",
-    },
-    # TJTO — eproc não tem página pública de indisponibilidade; usa notícias gerais
-    {
-        "nome": "TJTO - Comunicados eproc",
         "acronym": "TJTO",
-        "url": "https://www.tjto.jus.br/comunicacao/noticias",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça do Tocantins",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjto.jus.br",
-        "fase": "alertas",
+        # eproc não tem página pública de indisponibilidade; usa notícias gerais
+        "alertas": {
+            "nome": "TJTO - Comunicados eproc",
+            "url": "https://www.tjto.jus.br/comunicacao/noticias",
+            "parser": "generic_news",
+            "base_url": "https://www.tjto.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJTO - Notícias",
+                "url": "https://www.tjto.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tjto.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TJTO - Notícias",
-        "acronym": "TJTO",
-        "url": "https://www.tjto.jus.br/comunicacao/noticias",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjto.jus.br",
-        "fase": "noticias",
-    },
-    # TJBA
-    {
-        "nome": "TJBA - Indisponibilidade PJe",
         "acronym": "TJBA",
-        "url": "https://www.tjba.jus.br/portal/aviso-indisponibilidade/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal de Justiça da Bahia",
         "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjba.jus.br",
-        "fase": "alertas",
-    },
-    {
-        "nome": "TJBA - Agência de Notícias",
-        "acronym": "TJBA",
-        "url": "https://www.tjba.jus.br/portal/agencia-de-noticias/",
-        "tipo": "Notícias",
-        "grupo": "Tribunais-Estaduais",
-        "parser": "generic_news",
-        "base_url": "https://www.tjba.jus.br",
-        "fase": "noticias",
+        "alertas": {
+            "nome": "TJBA - Indisponibilidade PJe",
+            "url": "https://www.tjba.jus.br/portal/aviso-indisponibilidade/",
+            "parser": "generic_news",
+            "base_url": "https://www.tjba.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TJBA - Agência de Notícias",
+                "url": "https://www.tjba.jus.br/portal/agencia-de-noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.tjba.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
 
     # ── Tribunais Regionais Federais ───────────────────────────────────────────
-    # TRF1
     {
-        "nome": "TRF1 - Indisponibilidade",
         "acronym": "TRF1",
-        "url": "https://app.trf1.jus.br/indisponibilidades-relatorio/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 1ª Região",
         "grupo": "TRFs",
-        "parser": "trf1",
-        "base_url": "https://portal.trf1.jus.br",
-        "fase": "alertas",
-        "force_playwright": True,
-        "wait_selector": "table, .mat-row, .cdk-row",
+        "alertas": {
+            "nome": "TRF1 - Indisponibilidade",
+            "url": "https://app.trf1.jus.br/indisponibilidades-relatorio/",
+            "parser": "trf1",
+            "base_url": "https://portal.trf1.jus.br",
+            "tipo": "Indisponibilidade",
+            "force_playwright": True,
+            "wait_selector": "table, .mat-row, .cdk-row",
+        },
+        "noticias": [
+            {
+                "nome": "TRF1 - Notícias",
+                "url": "https://www.trf1.jus.br/trf1/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.trf1.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRF1 - Notícias",
-        "acronym": "TRF1",
-        "url": "https://www.trf1.jus.br/trf1/noticias/",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf1.jus.br",
-        "fase": "noticias",
-    },
-    # TRF2 — eproc; usa página de avisos como melhor proxy de indisponibilidade
-    {
-        "nome": "TRF2 - Avisos de Sistema",
         "acronym": "TRF2",
-        "url": "https://www.trf2.jus.br/jf2/aviso-jf2/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 2ª Região",
         "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf2.jus.br",
-        "fase": "alertas",
+        # eproc; usa página de avisos como melhor proxy de indisponibilidade
+        "alertas": {
+            "nome": "TRF2 - Avisos de Sistema",
+            "url": "https://www.trf2.jus.br/jf2/aviso-jf2/",
+            "parser": "generic_news",
+            "base_url": "https://www.trf2.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRF2 - Portal",
+                "url": "https://www.trf2.jus.br/",
+                "parser": "generic_news",
+                "base_url": "https://www.trf2.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRF2 - Portal",
-        "acronym": "TRF2",
-        "url": "https://www.trf2.jus.br/",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf2.jus.br",
-        "fase": "noticias",
-    },
-    # TRF3
-    {
-        "nome": "TRF3 - Indisponibilidade SETI",
         "acronym": "TRF3",
-        "url": "https://www.trf3.jus.br/seti/indisponibilidade-dos-sistemas-judiciais-eletronicos",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 3ª Região",
         "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf3.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TRF3 - Indisponibilidade SETI",
+            "url": "https://www.trf3.jus.br/seti/indisponibilidade-dos-sistemas-judiciais-eletronicos",
+            "parser": "generic_news",
+            "base_url": "https://www.trf3.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRF3 - Últimas Notícias",
+                "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias",
+                "parser": "generic_news",
+                "base_url": "https://web.trf3.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRF3 - Últimas Notícias",
-        "acronym": "TRF3",
-        "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://web.trf3.jus.br",
-        "fase": "noticias",
-    },
-    # TRF4 — eproc; usa lista de avisos como melhor proxy de indisponibilidade
-    {
-        "nome": "TRF4 - Avisos de Sistema",
         "acronym": "TRF4",
-        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=aviso_listar&id_orgao=1",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 4ª Região",
         "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf4.jus.br",
-        "fase": "alertas",
+        # eproc; usa lista de avisos como melhor proxy de indisponibilidade
+        "alertas": {
+            "nome": "TRF4 - Avisos de Sistema",
+            "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=aviso_listar&id_orgao=1",
+            "parser": "generic_news",
+            "base_url": "https://www.trf4.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRF4 - Notícias",
+                "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=noticia_portal",
+                "parser": "generic_news",
+                "base_url": "https://www.trf4.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TRF4-Norm",
+                "nome": "TRF4 - Atos Normativos",
+                "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=ato_normativo_pesquisar",
+                "parser": "generic_news",
+                "base_url": "https://www.trf4.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
     {
-        "nome": "TRF4 - Notícias",
-        "acronym": "TRF4",
-        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=noticia_portal",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf4.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TRF4 - Atos Normativos",
-        "acronym": "TRF4-Norm",
-        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=ato_normativo_pesquisar",
-        "tipo": "Normativos",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf4.jus.br",
-        "fase": "noticias",
-    },
-    # TRF5
-    {
-        "nome": "TRF5 - Indisponibilidade PJe",
         "acronym": "TRF5",
-        "url": "https://pje.trf5.jus.br/pje/IndisponibilidadeSistema/listView.seam",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 5ª Região",
         "grupo": "TRFs",
-        "parser": "trf5",
-        "base_url": "https://pje.trf5.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TRF5 - Indisponibilidade PJe",
+            "url": "https://pje.trf5.jus.br/pje/IndisponibilidadeSistema/listView.seam",
+            "parser": "trf5",
+            "base_url": "https://pje.trf5.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRF5 - Notícias",
+                "url": "https://www.trf5.jus.br/index.php/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trf5.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRF5 - Notícias",
-        "acronym": "TRF5",
-        "url": "https://www.trf5.jus.br/index.php/noticias",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://www.trf5.jus.br",
-        "fase": "noticias",
-    },
-    # TRF6 — eproc; usa página de avisos como melhor proxy de indisponibilidade
-    {
-        "nome": "TRF6 - Avisos de Sistema",
         "acronym": "TRF6",
-        "url": "https://portal.trf6.jus.br/avisos/",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional Federal da 6ª Região",
         "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://portal.trf6.jus.br",
-        "fase": "alertas",
-    },
-    {
-        "nome": "TRF6 - Notícias",
-        "acronym": "TRF6",
-        "url": "https://portal.trf6.jus.br/noticias/",
-        "tipo": "Notícias",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://portal.trf6.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TRF6 - Atos Normativos",
-        "acronym": "TRF6-Norm",
-        "url": "https://portal.trf6.jus.br/atos-normativos/",
-        "tipo": "Normativos",
-        "grupo": "TRFs",
-        "parser": "generic_news",
-        "base_url": "https://portal.trf6.jus.br",
-        "fase": "noticias",
+        # eproc; usa página de avisos como melhor proxy de indisponibilidade
+        "alertas": {
+            "nome": "TRF6 - Avisos de Sistema",
+            "url": "https://portal.trf6.jus.br/avisos/",
+            "parser": "generic_news",
+            "base_url": "https://portal.trf6.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRF6 - Notícias",
+                "url": "https://portal.trf6.jus.br/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://portal.trf6.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TRF6-Norm",
+                "nome": "TRF6 - Atos Normativos",
+                "url": "https://portal.trf6.jus.br/atos-normativos/",
+                "parser": "generic_news",
+                "base_url": "https://portal.trf6.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
 
     # ── Tribunais Regionais do Trabalho ────────────────────────────────────────
-    # TRT1
     {
-        "nome": "TRT1 - Indisponibilidade PJe",
         "acronym": "TRT1",
-        "url": "https://www.trt1.jus.br/certidao-de-indisponibilidade",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional do Trabalho da 1ª Região",
         "grupo": "TRTs",
-        "parser": "generic_table",
-        "base_url": "https://www.trt1.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TRT1 - Indisponibilidade PJe",
+            "url": "https://www.trt1.jus.br/certidao-de-indisponibilidade",
+            "parser": "generic_table",
+            "base_url": "https://www.trt1.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT1 - Últimas Notícias",
+                "url": "https://www.trt1.jus.br/ultimas-noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt1.jus.br",
+                "tipo": "Notícias",
+            },
+            {
+                "acronym": "TRT1-Bib",
+                "nome": "TRT1 - Biblioteca Digital (Atos)",
+                "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6",
+                "parser": "generic_table",
+                "base_url": "https://bibliotecadigital.trt1.jus.br",
+                "tipo": "Normativos",
+            },
+        ],
     },
     {
-        "nome": "TRT1 - Últimas Notícias",
-        "acronym": "TRT1",
-        "url": "https://www.trt1.jus.br/ultimas-noticias",
-        "tipo": "Notícias",
-        "grupo": "TRTs",
-        "parser": "generic_news",
-        "base_url": "https://www.trt1.jus.br",
-        "fase": "noticias",
-    },
-    {
-        "nome": "TRT1 - Biblioteca Digital (Atos)",
-        "acronym": "TRT1-Bib",
-        "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6",
-        "tipo": "Normativos",
-        "grupo": "TRTs",
-        "parser": "generic_table",
-        "base_url": "https://bibliotecadigital.trt1.jus.br",
-        "fase": "noticias",
-    },
-    # TRT2
-    {
-        "nome": "TRT2 - Indisponibilidade PJe",
         "acronym": "TRT2",
-        "url": "https://aplicacoes8.trt2.jus.br/sis/indisponibilidade/consulta",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional do Trabalho da 2ª Região",
         "grupo": "TRTs",
-        "parser": "generic_table",
-        "base_url": "https://aplicacoes8.trt2.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TRT2 - Indisponibilidade PJe",
+            "url": "https://aplicacoes8.trt2.jus.br/sis/indisponibilidade/consulta",
+            "parser": "generic_table",
+            "base_url": "https://aplicacoes8.trt2.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT2 - Notícias",
+                "url": "https://ww2.trt2.jus.br/noticias/noticias",
+                "parser": "generic_news",
+                "base_url": "https://ww2.trt2.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRT2 - Notícias",
-        "acronym": "TRT2",
-        "url": "https://ww2.trt2.jus.br/noticias/noticias",
-        "tipo": "Notícias",
-        "grupo": "TRTs",
-        "parser": "generic_news",
-        "base_url": "https://ww2.trt2.jus.br",
-        "fase": "noticias",
-    },
-    # TRT3 — sem página pública de indisponibilidade encontrada
-    {
-        "nome": "TRT3 - Notícias Institucionais",
         "acronym": "TRT3",
-        "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais",
-        "tipo": "Notícias",
+        "nome": "Tribunal Regional do Trabalho da 3ª Região",
         "grupo": "TRTs",
-        "parser": "generic_news",
-        "base_url": "https://portal.trt3.jus.br",
-        "fase": "noticias",
+        # Sem página pública de indisponibilidade encontrada
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRT3 - Notícias Institucionais",
+                "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais",
+                "parser": "generic_news",
+                "base_url": "https://portal.trt3.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
-    # TRT4
     {
-        "nome": "TRT4 - Indisponibilidade PJe",
         "acronym": "TRT4",
-        "url": "https://www.trt4.jus.br/portais/trt4/pje-indisponibilidade",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional do Trabalho da 4ª Região",
         "grupo": "TRTs",
-        "parser": "generic_table",
-        "base_url": "https://www.trt4.jus.br",
-        "fase": "alertas",
+        "alertas": {
+            "nome": "TRT4 - Indisponibilidade PJe",
+            "url": "https://www.trt4.jus.br/portais/trt4/pje-indisponibilidade",
+            "parser": "generic_table",
+            "base_url": "https://www.trt4.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT4 - Notícias",
+                "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0",
+                "parser": "generic_news",
+                "base_url": "https://www.trt4.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
     {
-        "nome": "TRT4 - Notícias",
-        "acronym": "TRT4",
-        "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0",
-        "tipo": "Notícias",
-        "grupo": "TRTs",
-        "parser": "generic_news",
-        "base_url": "https://www.trt4.jus.br",
-        "fase": "noticias",
-    },
-    # TRT15
-    {
-        "nome": "TRT15 - Indisponibilidade PJe",
         "acronym": "TRT15",
-        "url": "https://trt15.jus.br/pje/indisponibilidade-pje",
-        "tipo": "Indisponibilidade",
+        "nome": "Tribunal Regional do Trabalho da 15ª Região",
         "grupo": "TRTs",
-        "parser": "generic_table",
-        "base_url": "https://trt15.jus.br",
-        "fase": "alertas",
-    },
-    {
-        "nome": "TRT15 - Notícias",
-        "acronym": "TRT15",
-        "url": "https://trt15.jus.br/noticia/",
-        "tipo": "Notícias",
-        "grupo": "TRTs",
-        "parser": "generic_news",
-        "base_url": "https://trt15.jus.br",
-        "fase": "noticias",
+        "alertas": {
+            "nome": "TRT15 - Indisponibilidade PJe",
+            "url": "https://trt15.jus.br/pje/indisponibilidade-pje",
+            "parser": "generic_table",
+            "base_url": "https://trt15.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT15 - Notícias",
+                "url": "https://trt15.jus.br/noticia/",
+                "parser": "generic_news",
+                "base_url": "https://trt15.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
     },
 ]
 
+# ---------------------------------------------------------------------------
+# Helpers para derivar as listas planas de cada pipeline
+# ---------------------------------------------------------------------------
+
+def _to_alertas_entry(f: dict) -> dict | None:
+    """Constrói a entrada plana de alertas a partir de uma entrada do FONTES."""
+    if not f.get("alertas"):
+        return None
+    a = f["alertas"].copy()
+    a["acronym"] = f["acronym"]
+    a.setdefault("nome",  f["nome"] + " — Indisponibilidade")
+    a["grupo"]   = f["grupo"]
+    a["fase"]    = "alertas"
+    a.setdefault("tipo", "Indisponibilidade")
+    return a
+
+
+def _to_noticias_entries(f: dict) -> list[dict]:
+    """Constrói a lista plana de entradas de notícias a partir de uma entrada do FONTES."""
+    result = []
+    for n in f.get("noticias") or []:
+        item = n.copy()
+        item.setdefault("acronym", f["acronym"])
+        item.setdefault("grupo",   f["grupo"])
+        item["fase"] = "noticias"
+        result.append(item)
+    return result
+
+
 # Listas derivadas — usadas pelos dois pipelines e pelos testes
-TRIBUNAIS_DIRETO = [f for f in FONTES if f["fase"] == "alertas"]   # 18 fontes
-FONTES_NOTICIAS  = [f for f in FONTES if f["fase"] == "noticias"]  # 37 fontes
+TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 18 fontes
+FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 37 fontes
 
 # ---------------------------------------------------------------------------
 # Camada de fetch (compartilhada pelos dois subsistemas)

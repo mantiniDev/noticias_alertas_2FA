@@ -14,6 +14,7 @@ from unittest.mock import patch, MagicMock
 from bs4 import BeautifulSoup
 
 from core.scraper_direto import (
+    FONTES,
     TRIBUNAIS_DIRETO,
     FONTES_NOTICIAS,
     _txt,
@@ -140,6 +141,70 @@ class TestAbs:
 # ---------------------------------------------------------------------------
 # Integridade estrutural das listas
 # ---------------------------------------------------------------------------
+
+class TestFontes:
+    """Testa a estrutura da lista unificada FONTES (28 entradas nested)."""
+
+    CAMPOS_OBRIGATORIOS = {"acronym", "nome", "grupo", "alertas", "noticias"}
+    CAMPOS_ALERTAS      = {"url", "parser", "base_url"}
+    CAMPOS_NOTICIAS     = {"nome", "url", "parser", "base_url", "tipo"}
+
+    def test_tem_28_entradas(self):
+        assert len(FONTES) == 28
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_campos_obrigatorios(self, f):
+        faltando = self.CAMPOS_OBRIGATORIOS - f.keys()
+        assert not faltando, f"{f.get('acronym','?')} sem campos: {faltando}"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_alertas_e_dict_ou_none(self, f):
+        a = f["alertas"]
+        assert a is None or isinstance(a, dict), \
+            f"{f['acronym']}: alertas deve ser dict ou None"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_alertas_campos_obrigatorios(self, f):
+        a = f["alertas"]
+        if a is None:
+            return
+        faltando = self.CAMPOS_ALERTAS - a.keys()
+        assert not faltando, f"{f['acronym']} alertas sem campos: {faltando}"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_alertas_url_https(self, f):
+        a = f["alertas"]
+        if a is None:
+            return
+        assert a["url"].startswith("https://"), \
+            f"{f['acronym']}: alertas URL não começa com https"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_noticias_e_lista_nao_vazia(self, f):
+        assert isinstance(f["noticias"], list) and len(f["noticias"]) > 0, \
+            f"{f['acronym']}: noticias deve ser lista não vazia"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_noticias_campos_obrigatorios(self, f):
+        for i, n in enumerate(f["noticias"]):
+            faltando = self.CAMPOS_NOTICIAS - n.keys()
+            assert not faltando, \
+                f"{f['acronym']} noticias[{i}] sem campos: {faltando}"
+
+    @pytest.mark.parametrize("f", FONTES)
+    def test_noticias_url_https(self, f):
+        for n in f["noticias"]:
+            assert n["url"].startswith("https://"), \
+                f"{f['acronym']}: noticias URL '{n['url']}' não começa com https"
+
+    def test_tribunais_direto_derivado_corretamente(self):
+        """_to_alertas_entry produz 18 entradas com todos os campos planos."""
+        assert len(TRIBUNAIS_DIRETO) == 18
+
+    def test_fontes_noticias_derivado_corretamente(self):
+        """_to_noticias_entries produz 37 entradas com todos os campos planos."""
+        assert len(FONTES_NOTICIAS) == 37
+
 
 class TestTribunaisDireto:
     CAMPOS_OBRIGATORIOS = {"acronym", "nome", "url", "parser", "base_url", "fase", "tipo", "grupo"}
