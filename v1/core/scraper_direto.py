@@ -3,15 +3,15 @@
 Motor secundário do MAST — lista unificada de fontes por tribunal.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- FONTES — Lista unificada (47 entradas, 2 pipelines)
+ FONTES — Lista unificada (97 entradas, 2 pipelines)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Cada entrada representa um tribunal/sistema e contém obrigatoriamente:
     alertas  : dict | None  — fonte de indisponibilidade
     noticias : list[dict]   — lista de fontes de notícias/normativos
 
   Listas planas derivadas:
-    TRIBUNAIS_DIRETO — 35 entradas de alertas → buscar_noticias_direto()
-    FONTES_NOTICIAS  — 56 entradas de noticias → buscar_noticias_fontes()
+    TRIBUNAIS_DIRETO — 68 entradas de alertas → buscar_noticias_direto()
+    FONTES_NOTICIAS  — 106 entradas de noticias → buscar_noticias_fontes()
                        agrupadas por: Sistemas/CNJ, Superiores, TJEs, TRFs, TRTs
 
 Integração:
@@ -70,8 +70,8 @@ HEADERS = {
 #   O acronym do item herda do parent, mas pode ser sobrescrito com acronym local.
 #
 # Listas derivadas (usadas pelos dois pipelines e pelos testes):
-#   TRIBUNAIS_DIRETO = lista plana de entradas de alertas (35 fontes)
-#   FONTES_NOTICIAS  = lista plana de todas as entradas de noticias (56 fontes)
+#   TRIBUNAIS_DIRETO = lista plana de entradas de alertas (68 fontes)
+#   FONTES_NOTICIAS  = lista plana de todas as entradas de noticias (106 fontes)
 # ===========================================================================
 FONTES: list[dict] = [
 
@@ -231,6 +231,82 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.csjt.jus.br",
                 "tipo": "Normativos",
+            },
+        ],
+    },
+    {
+        "acronym": "TSE",
+        "nome": "Tribunal Superior Eleitoral",
+        "grupo": "Tribunais-Superiores",
+        "principal": False,
+        "alertas": {
+            "nome": "TSE - Indisponibilidade PJe",
+            "url": "https://www.tse.jus.br/servicos-judiciais/processos/processo-judicial-eletronico/indisponibilidade-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tse.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TSE - Notícias",
+                "url": "https://www.tse.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tse.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    {
+        "acronym": "STM",
+        "nome": "Superior Tribunal Militar",
+        "grupo": "Tribunais-Superiores",
+        "principal": False,
+        "alertas": {
+            "nome": "STM - Indisponibilidade SEI",
+            "url": "https://sei.stm.jus.br/modulos/peticionamento/md_pet_usu_ext_indisponibilidade_lista.php?acao_externa=md_pet_usu_ext_indisponibilidade_listar&id_orgao_acesso_externo=0",
+            "parser": "generic_table",
+            "base_url": "https://sei.stm.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "STM - Notícias",
+                "url": "https://www.stm.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.stm.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    {
+        "acronym": "CJF",
+        "nome": "Conselho da Justiça Federal",
+        "grupo": "Tribunais-Superiores",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "CJF - Notícias",
+                "url": "https://www.cjf.jus.br/cjf/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.cjf.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    {
+        "acronym": "CNMP",
+        "nome": "Conselho Nacional do Ministério Público",
+        "grupo": "Tribunais-Superiores",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "CNMP - Notícias",
+                "url": "https://www.cnmp.mp.br/portal/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.cnmp.mp.br",
+                "tipo": "Notícias",
             },
         ],
     },
@@ -1153,6 +1229,975 @@ FONTES: list[dict] = [
             },
         ],
     },
+    # TRT5
+    {
+        "acronym": "TRT5",
+        "nome": "Tribunal Regional do Trabalho da 5ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT5 - Indisponibilidade PJe",
+            "url": "https://portalpje.trt5.jus.br/pje-indisponibilidades",
+            "parser": "generic_news",
+            "base_url": "https://portalpje.trt5.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT5 - Notícias",
+                "url": "https://www.trt5.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt5.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT6
+    {
+        "acronym": "TRT6",
+        "nome": "Tribunal Regional do Trabalho da 6ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT6 - Períodos de Indisponibilidade PJe",
+            "url": "https://www.trt6.jus.br/portal/pje/historico",
+            "parser": "generic_table",
+            "base_url": "https://www.trt6.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT6 - Notícias",
+                "url": "https://www.trt6.jus.br/portal/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt6.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT7
+    {
+        "acronym": "TRT7",
+        "nome": "Tribunal Regional do Trabalho da 7ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT7 - Indisponibilidades PJe",
+            "url": "https://www.trt7.jus.br/index.php/blog/200-servicos/227-pje/7512-indisponibilidades-do-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.trt7.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT7 - Notícias",
+                "url": "https://www.trt7.jus.br/index.php/noticias/todas-as-noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt7.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT8
+    {
+        "acronym": "TRT8",
+        "nome": "Tribunal Regional do Trabalho da 8ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT8 - Indisponibilidade PJe",
+            "url": "https://www.trt8.jus.br/pje/indisponibilidade-do-sistema",
+            "parser": "generic_table",
+            "base_url": "https://www.trt8.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT8 - Notícias",
+                "url": "https://www.trt8.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt8.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT9
+    {
+        "acronym": "TRT9",
+        "nome": "Tribunal Regional do Trabalho da 9ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT9 - Certidões de Indisponibilidade",
+            "url": "https://www.trt9.jus.br/portal/pagina.xhtml?secao=67&pagina=Certidoes_de_Indisponibilidade_de_Sistemas",
+            "parser": "generic_news",
+            "base_url": "https://www.trt9.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT9 - Notícias",
+                "url": "https://www.trt9.jus.br/portal/noticias.xhtml",
+                "parser": "generic_news",
+                "base_url": "https://www.trt9.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT10 — sem página pública de indisponibilidade encontrada
+    {
+        "acronym": "TRT10",
+        "nome": "Tribunal Regional do Trabalho da 10ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRT10 - ASCOM Notícias",
+                "url": "https://www.trt10.jus.br/ascom/",
+                "parser": "generic_news",
+                "base_url": "https://www.trt10.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT11
+    {
+        "acronym": "TRT11",
+        "nome": "Tribunal Regional do Trabalho da 11ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT11 - Períodos de Indisponibilidade PJe",
+            "url": "https://portal.trt11.jus.br/index.php/advogados/pagina-pje/33-pje/365-periodos-de-indisponibilidade-do-pje-jt",
+            "parser": "generic_news",
+            "base_url": "https://portal.trt11.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT11 - Notícias",
+                "url": "https://portal.trt11.jus.br/index.php/comunicacao/noticias-lista",
+                "parser": "generic_news",
+                "base_url": "https://portal.trt11.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT12
+    {
+        "acronym": "TRT12",
+        "nome": "Tribunal Regional do Trabalho da 12ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT12 - Registros de Indisponibilidade PJe",
+            "url": "https://portal.trt12.jus.br/pje/uso_indisponibilidade",
+            "parser": "generic_news",
+            "base_url": "https://portal.trt12.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT12 - Notícias",
+                "url": "https://portal.trt12.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://portal.trt12.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT13
+    {
+        "acronym": "TRT13",
+        "nome": "Tribunal Regional do Trabalho da 13ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT13 - Relatório de Indisponibilidade PJe",
+            "url": "https://www.trt13.jus.br/pje/indisponibilidade",
+            "parser": "generic_news",
+            "base_url": "https://www.trt13.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT13 - Notícias",
+                "url": "https://www.trt13.jus.br/informe-se/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt13.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT14
+    {
+        "acronym": "TRT14",
+        "nome": "Tribunal Regional do Trabalho da 14ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT14 - Agenda de Indisponibilidade PJe",
+            "url": "https://portal.trt14.jus.br/portal/pje/indisponibilidade",
+            "parser": "generic_news",
+            "base_url": "https://portal.trt14.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT14 - Notícias",
+                "url": "https://portal.trt14.jus.br/portal/noticias",
+                "parser": "generic_news",
+                "base_url": "https://portal.trt14.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT16
+    {
+        "acronym": "TRT16",
+        "nome": "Tribunal Regional do Trabalho da 16ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT16 - Calendário de Indisponibilidade",
+            "url": "https://www.trt16.jus.br/servicos/outros-servicos/calendario-indisponibilidade",
+            "parser": "generic_table",
+            "base_url": "https://www.trt16.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT16 - Notícias",
+                "url": "https://www.trt16.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt16.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT17
+    {
+        "acronym": "TRT17",
+        "nome": "Tribunal Regional do Trabalho da 17ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT17 - Certidão de Indisponibilidade PJe",
+            "url": "https://www.trt17.jus.br/web/servicos/w/certidao-de-indisponibilidade-do-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.trt17.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT17 - Comunicação",
+                "url": "https://www.trt17.jus.br/web/comunicacao/w/",
+                "parser": "generic_news",
+                "base_url": "https://www.trt17.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT18
+    {
+        "acronym": "TRT18",
+        "nome": "Tribunal Regional do Trabalho da 18ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT18 - Certidões de Indisponibilidade PJe",
+            "url": "https://www.trt18.jus.br/portal/servicos/pje/01-certidoes-indisponibilidades-do-pje-no-trt-18a-regiao/",
+            "parser": "generic_news",
+            "base_url": "https://www.trt18.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT18 - Notícias",
+                "url": "https://www.trt18.jus.br/portal/noticias/",
+                "parser": "generic_news",
+                "base_url": "https://www.trt18.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT19
+    {
+        "acronym": "TRT19",
+        "nome": "Tribunal Regional do Trabalho da 19ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT19 - Períodos de Indisponibilidade PJe",
+            "url": "https://site.trt19.jus.br/portalTRT19/pjePeridosIndisponibilidades",
+            "parser": "generic_table",
+            "base_url": "https://site.trt19.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT19 - Notícias",
+                "url": "https://site.trt19.jus.br/portalTRT19/noticiafoco/",
+                "parser": "generic_news",
+                "base_url": "https://site.trt19.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT20
+    {
+        "acronym": "TRT20",
+        "nome": "Tribunal Regional do Trabalho da 20ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT20 - Indisponibilidade PJe",
+            "url": "https://www.trt20.jus.br/pje/indisponibilidade",
+            "parser": "generic_table",
+            "base_url": "https://www.trt20.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT20 - Notícias",
+                "url": "https://www.trt20.jus.br/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.trt20.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT21
+    {
+        "acronym": "TRT21",
+        "nome": "Tribunal Regional do Trabalho da 21ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT21 - Indisponibilidade PJe",
+            "url": "https://www.trt21.jus.br/servicos/pje/indisponibilidade-sistema",
+            "parser": "generic_table",
+            "base_url": "https://www.trt21.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT21 - Notícias",
+                "url": "https://www.trt21.jus.br/noticias/noticia/",
+                "parser": "generic_news",
+                "base_url": "https://www.trt21.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT22
+    {
+        "acronym": "TRT22",
+        "nome": "Tribunal Regional do Trabalho da 22ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT22 - Indisponibilidade de Serviços de TIC",
+            "url": "https://www.trt22.jus.br/servicos/indisponibilidade-de-servicos-de-tic",
+            "parser": "generic_table",
+            "base_url": "https://www.trt22.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT22 - Notícias",
+                "url": "https://www.trt22.jus.br/noticia",
+                "parser": "generic_news",
+                "base_url": "https://www.trt22.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT23 — sem página pública de indisponibilidade encontrada
+    {
+        "acronym": "TRT23",
+        "nome": "Tribunal Regional do Trabalho da 23ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRT23 - Notícias",
+                "url": "https://portal.trt23.jus.br/portal/noticias",
+                "parser": "generic_news",
+                "base_url": "https://portal.trt23.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRT24
+    {
+        "acronym": "TRT24",
+        "nome": "Tribunal Regional do Trabalho da 24ª Região",
+        "grupo": "TRTs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRT24 - Relatório de Indisponibilidade PJe",
+            "url": "https://www.trt24.jus.br/relatorio-indisponibilidade-pje",
+            "parser": "generic_table",
+            "base_url": "https://www.trt24.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRT24 - Notícias Institucionais",
+                "url": "https://www.trt24.jus.br/web/guest/noticias-institucionais",
+                "parser": "generic_news",
+                "base_url": "https://www.trt24.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # ── Tribunais Regionais Eleitorais ────────────────────────────────────────
+    # TRE-AC
+    {
+        "acronym": "TRE-AC",
+        "nome": "Tribunal Regional Eleitoral do Acre",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-AC - Indisponibilidade PJe",
+            "url": "https://www.tre-ac.jus.br/servicos-judiciais/pje-processo-judicial-eletronico/indisponibilidades-do-sistema-pje-tse",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-ac.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-AC - Notícias",
+                "url": "https://www.tre-ac.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ac.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-AL
+    {
+        "acronym": "TRE-AL",
+        "nome": "Tribunal Regional Eleitoral de Alagoas",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-AL - Notícias",
+                "url": "https://www.tre-al.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-al.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-AP
+    {
+        "acronym": "TRE-AP",
+        "nome": "Tribunal Regional Eleitoral do Amapá",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-AP - Notícias",
+                "url": "https://www.tre-ap.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ap.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-AM
+    {
+        "acronym": "TRE-AM",
+        "nome": "Tribunal Regional Eleitoral do Amazonas",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-AM - Notícias",
+                "url": "https://www.tre-am.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-am.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-BA
+    {
+        "acronym": "TRE-BA",
+        "nome": "Tribunal Regional Eleitoral da Bahia",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-BA - Indisponibilidades PJe",
+            "url": "https://www.tre-ba.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-ba.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-BA - Notícias",
+                "url": "https://www.tre-ba.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ba.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-CE — sem página dedicada de indisponibilidade
+    {
+        "acronym": "TRE-CE",
+        "nome": "Tribunal Regional Eleitoral do Ceará",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-CE - Notícias",
+                "url": "https://www.tre-ce.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ce.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-DF
+    {
+        "acronym": "TRE-DF",
+        "nome": "Tribunal Regional Eleitoral do Distrito Federal",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-DF - Notícias",
+                "url": "https://www.tre-df.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-df.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-ES
+    {
+        "acronym": "TRE-ES",
+        "nome": "Tribunal Regional Eleitoral do Espírito Santo",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-ES - Notícias",
+                "url": "https://www.tre-es.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-es.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-GO
+    {
+        "acronym": "TRE-GO",
+        "nome": "Tribunal Regional Eleitoral de Goiás",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-GO - Indisponibilidades PJe",
+            "url": "https://www.tre-go.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-go.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-GO - Notícias",
+                "url": "https://www.tre-go.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-go.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-MA
+    {
+        "acronym": "TRE-MA",
+        "nome": "Tribunal Regional Eleitoral do Maranhão",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-MA - Comunicados Institucionais",
+            "url": "https://www.tre-ma.jus.br/institucional/comunicados",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-ma.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-MA - Notícias",
+                "url": "https://www.tre-ma.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ma.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-MG
+    {
+        "acronym": "TRE-MG",
+        "nome": "Tribunal Regional Eleitoral de Minas Gerais",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-MG - Indisponibilidade PJe",
+            "url": "https://www.tre-mg.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidade-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-mg.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-MG - Notícias",
+                "url": "https://www.tre-mg.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-mg.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-MS
+    {
+        "acronym": "TRE-MS",
+        "nome": "Tribunal Regional Eleitoral do Mato Grosso do Sul",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-MS - Indisponibilidades PJe",
+            "url": "https://www.tre-ms.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-ms.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-MS - Notícias",
+                "url": "https://www.tre-ms.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ms.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-MT
+    {
+        "acronym": "TRE-MT",
+        "nome": "Tribunal Regional Eleitoral do Mato Grosso",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-MT - Serviço de Indisponibilidade PJe",
+            "url": "https://www.tre-mt.jus.br/servicos-judiciais/processos/processo-judicial-eletronico/servico-de-indisponibilidade-do-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-mt.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-MT - Notícias",
+                "url": "https://www.tre-mt.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-mt.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-PA
+    {
+        "acronym": "TRE-PA",
+        "nome": "Tribunal Regional Eleitoral do Pará",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-PA - Notícias",
+                "url": "https://www.tre-pa.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-pa.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-PB
+    {
+        "acronym": "TRE-PB",
+        "nome": "Tribunal Regional Eleitoral da Paraíba",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-PB - Notícias",
+                "url": "https://www.tre-pb.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-pb.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-PE
+    {
+        "acronym": "TRE-PE",
+        "nome": "Tribunal Regional Eleitoral de Pernambuco",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-PE - Indisponibilidades PJe",
+            "url": "https://www.tre-pe.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-pe.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-PE - Notícias",
+                "url": "https://www.tre-pe.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-pe.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-PI
+    {
+        "acronym": "TRE-PI",
+        "nome": "Tribunal Regional Eleitoral do Piauí",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-PI - Indisponibilidades PJe",
+            "url": "https://www.tre-pi.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-pi.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-PI - Notícias",
+                "url": "https://www.tre-pi.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-pi.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-PR
+    {
+        "acronym": "TRE-PR",
+        "nome": "Tribunal Regional Eleitoral do Paraná",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-PR - Indisponibilidade PJe",
+            "url": "https://www.tre-pr.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidade-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-pr.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-PR - Notícias",
+                "url": "https://www.tre-pr.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-pr.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-RJ
+    {
+        "acronym": "TRE-RJ",
+        "nome": "Tribunal Regional Eleitoral do Rio de Janeiro",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-RJ - Notícias",
+                "url": "https://www.tre-rj.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-rj.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-RN
+    {
+        "acronym": "TRE-RN",
+        "nome": "Tribunal Regional Eleitoral do Rio Grande do Norte",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-RN - Notícias",
+                "url": "https://www.tre-rn.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-rn.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-RO
+    {
+        "acronym": "TRE-RO",
+        "nome": "Tribunal Regional Eleitoral de Rondônia",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-RO - Indisponibilidades PJe",
+            "url": "https://www.tre-ro.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidades-do-sistema-pje-tre-ro",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-ro.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-RO - Notícias",
+                "url": "https://www.tre-ro.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-ro.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-RR
+    {
+        "acronym": "TRE-RR",
+        "nome": "Tribunal Regional Eleitoral de Roraima",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-RR - Notícias",
+                "url": "https://www.tre-rr.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-rr.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-RS
+    {
+        "acronym": "TRE-RS",
+        "nome": "Tribunal Regional Eleitoral do Rio Grande do Sul",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-RS - Notícias",
+                "url": "https://www.tre-rs.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-rs.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-SC
+    {
+        "acronym": "TRE-SC",
+        "nome": "Tribunal Regional Eleitoral de Santa Catarina",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-SC - Verificação de Indisponibilidade PJe",
+            "url": "https://www.tre-sc.jus.br/servicos-judiciais/pje/verificacao-de-indisponibilidade",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-sc.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-SC - Notícias",
+                "url": "https://www.tre-sc.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-sc.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-SE
+    {
+        "acronym": "TRE-SE",
+        "nome": "Tribunal Regional Eleitoral de Sergipe",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": None,
+        "noticias": [
+            {
+                "nome": "TRE-SE - Notícias",
+                "url": "https://www.tre-se.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-se.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-SP
+    {
+        "acronym": "TRE-SP",
+        "nome": "Tribunal Regional Eleitoral de São Paulo",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-SP - Indisponibilidade PJe",
+            "url": "https://www.tre-sp.jus.br/servicos-judiciais/indisponibilidade-pje",
+            "parser": "generic_table",
+            "base_url": "https://www.tre-sp.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-SP - Notícias",
+                "url": "https://www.tre-sp.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-sp.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
+    # TRE-TO
+    {
+        "acronym": "TRE-TO",
+        "nome": "Tribunal Regional Eleitoral do Tocantins",
+        "grupo": "TREs",
+        "principal": False,
+        "alertas": {
+            "nome": "TRE-TO - Indisponibilidade PJe",
+            "url": "https://www.tre-to.jus.br/servicos-judiciais/processo-judicial-eletronico-pje/indisponibilidade-do-sistema-pje",
+            "parser": "generic_news",
+            "base_url": "https://www.tre-to.jus.br",
+            "tipo": "Indisponibilidade",
+        },
+        "noticias": [
+            {
+                "nome": "TRE-TO - Notícias",
+                "url": "https://www.tre-to.jus.br/comunicacao/noticias",
+                "parser": "generic_news",
+                "base_url": "https://www.tre-to.jus.br",
+                "tipo": "Notícias",
+            },
+        ],
+    },
 ]
 
 # ---------------------------------------------------------------------------
@@ -1187,8 +2232,8 @@ def _to_noticias_entries(f: dict) -> list[dict]:
 
 
 # Listas derivadas — usadas pelos dois pipelines e pelos testes
-TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 35 fontes
-FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 56 fontes
+TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 68 fontes
+FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 106 fontes
 
 # ---------------------------------------------------------------------------
 # Camada de fetch (compartilhada pelos dois subsistemas)
@@ -1730,6 +2775,7 @@ _GRUPOS_LABEL = {
     "Tribunais-Estaduais":  "Tribunais de Justiça Estaduais",
     "TRFs":                 "Tribunais Regionais Federais",
     "TRTs":                 "Tribunais Regionais do Trabalho",
+    "TREs":                 "Tribunais Regionais Eleitorais",
 }
 
 
@@ -1744,6 +2790,7 @@ def buscar_noticias_fontes() -> dict[str, list]:
         "Tribunais-Estaduais":  [...],
         "TRFs":                 [...],
         "TRTs":                 [...],
+        "TREs":                 [...],
     }
 
     Cada item da lista segue o formato padrão do MAST, com campos extras
