@@ -10,7 +10,7 @@ Motor secundário do MAST — lista unificada de fontes por tribunal.
     noticias : list[dict]   — lista de fontes de notícias/normativos
 
   Listas planas derivadas:
-    TRIBUNAIS_DIRETO — 63 entradas de alertas → buscar_noticias_direto()
+    TRIBUNAIS_DIRETO — 61 entradas de alertas → buscar_noticias_direto()
     FONTES_NOTICIAS  — 104 entradas de noticias → buscar_noticias_fontes()
                        agrupadas por: Sistemas/CNJ, Superiores, TJEs, TRFs, TRTs
 
@@ -22,6 +22,7 @@ Integração:
 """
 
 import logging
+import re
 import time
 import warnings
 from datetime import datetime, timezone
@@ -42,6 +43,23 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constantes locais de apresentação HTTP
 # ---------------------------------------------------------------------------
+
+# Regex para detectar títulos que são APENAS datas/timestamps sem conteúdo textual.
+# Usada pelo parse_generic_table para evitar usar uma data como título da notícia.
+# Exemplos cobertos: "07.05.2026", "09/03/2026 das 06:00 até ...", "Janeiro"
+_RE_PURE_DATE = re.compile(
+    r'^\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4}'          # "07.05.2026", "09/03/2026 ..."
+    r'|^\d{4}[/\.\-]\d{1,2}[/\.\-]\d{1,2}'            # "2026-05-09"
+    r'|^(janeiro|fevereiro|mar[cç]o|abril|maio|junho'   # nomes de mês isolados
+    r'|julho|agosto|setembro|outubro|novembro|dezembro)$',
+    re.IGNORECASE,
+)
+
+# Tags HTML que representam navegação/acessibilidade — jamais contêm notícias reais.
+_NAV_TAGS = "nav, header, footer, .menu, .navbar, .breadcrumb, .lfr-nav, " \
+            ".taglib-navigation, aside, .accessibility, .vlibras, " \
+            ".skip-nav, #accessibility-tools"
+
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -405,7 +423,7 @@ FONTES: list[dict] = [
         "alertas": {
             "nome": "TJPR - Indisponibilidade Projudi",
             "url": "https://projudi.tjpr.jus.br/projudi/indisponibilidades.jsp",
-            "parser": "generic_table",
+            "parser": "projudi",
             "base_url": "https://projudi.tjpr.jus.br",
             "tipo": "Indisponibilidade",
         },
@@ -821,19 +839,13 @@ FONTES: list[dict] = [
             },
         ],
     },
-    # TJRN
+    # TJRN — site com geo-bloqueio para IPs externos (CI): retorna página de acesso negado
     {
         "acronym": "TJRN",
         "nome": "Tribunal de Justiça do Rio Grande do Norte",
         "grupo": "Tribunais-Estaduais",
         "principal": False,
-        "alertas": {
-            "nome": "TJRN - Registro de Indisponibilidade",
-            "url": "https://www.tjrn.jus.br/processo-judicial-eletronico/registro-de-indisponibilidade/",
-            "parser": "generic_table",
-            "base_url": "https://www.tjrn.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,  # geo-bloqueio: retorna "Clique aqui para abrir sua solicitação"
         "noticias": [
             {
                 "nome": "TJRN - Notícias",
@@ -841,6 +853,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjrn.jus.br",
                 "tipo": "Notícias",
+                "skip_playwright": True,  # site bloqueia IPs de CI via Playwright
             },
         ],
     },
@@ -870,7 +883,7 @@ FONTES: list[dict] = [
         "alertas": {
             "nome": "TJRR - Indisponibilidade Projudi",
             "url": "https://projudi.tjrr.jus.br/projudi/indisponibilidades.jsp",
-            "parser": "generic_table",
+            "parser": "projudi",
             "base_url": "https://projudi.tjrr.jus.br",
             "tipo": "Indisponibilidade",
         },
@@ -1485,13 +1498,7 @@ FONTES: list[dict] = [
         "nome": "Tribunal Regional do Trabalho da 19ª Região",
         "grupo": "TRTs",
         "principal": False,
-        "alertas": {
-            "nome": "TRT19 - Períodos de Indisponibilidade PJe",
-            "url": "https://site.trt19.jus.br/portalTRT19/pjePeridosIndisponibilidades",
-            "parser": "generic_table",
-            "base_url": "https://site.trt19.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,  # site retorna "Erro temporário. Tente novamente." no CI
         "noticias": [
             {
                 "nome": "TRT19 - Notícias",
@@ -2189,7 +2196,7 @@ def _to_noticias_entries(f: dict) -> list[dict]:
 
 
 # Listas derivadas — usadas pelos dois pipelines e pelos testes
-TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 63 fontes
+TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 61 fontes
 FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 104 fontes
 
 # ---------------------------------------------------------------------------
@@ -2318,11 +2325,27 @@ def _abs(href: str, base_url: str) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_generic_news(soup, acronym, base_url):
-    """Páginas de notícias com articles / h2-h3 links."""
+    """Páginas de notícias com articles / h2-h3 links.
+
+    Remove explicitamente navegação, rodapé e controles de acessibilidade
+    antes de processar — evita capturar itens de menu como notícias.
+    """
+    # Remove elementos que nunca contêm notícias reais
+    for tag in soup.select(_NAV_TAGS):
+        tag.decompose()
+
+    # Estratégia 1: <article> (estrutura semântica)
+    # Estratégia 2: classes comuns de listas de notícias
+    # Estratégia 3: fallback — h2/h3/h4 com link, apenas dentro de área de conteúdo
+    area = soup.select_one(
+        "main, .main-content, #content, .content-area, "
+        ".portlet-body, .journal-content-article, #main-content"
+    ) or soup
+
     items = (
-        soup.select("article")
-        or soup.select(".views-row, .item-list li, .noticia-item")
-        or soup.select("h2 a, h3 a, h4 a")
+        area.select("article")
+        or area.select(".views-row, .item-list li, .noticia-item")
+        or area.select("h2 a, h3 a, h4 a")
     )
     results = []
     for item in items[:MAX_ITEMS]:
@@ -2333,37 +2356,67 @@ def parse_generic_news(soup, acronym, base_url):
             k in c.lower() for k in ("resumo", "desc", "summary", "intro", "lead")
         )) if hasattr(item, "find") else None
         resumo = _txt(resumo_tag) if resumo_tag else ""
-        if titulo and len(titulo) > 10:
+        # Mínimo de 15 chars e não pode ser só data
+        if titulo and len(titulo) > 15 and not _RE_PURE_DATE.match(titulo.strip()):
             results.append({"titulo": titulo, "resumo": resumo, "link": link})
     return results
 
 
 def parse_generic_table(soup, acronym, base_url):
-    """Páginas com tabela HTML de indisponibilidades."""
+    """Páginas com tabela HTML de indisponibilidades.
+
+    Melhorias em relação à versão original:
+    - Se col[0] for apenas uma data/timestamp, trata como período e promove
+      col[1] para título — evita usar "09/03/2026 das 06:00..." como título.
+    - Fallback li/p: exclui nav/header/footer, exige min 40 chars,
+      descarta itens que são só datas (acessibilidade, menus).
+    """
     results = []
+    HEADERS_SKIP = {"sistema", "data", "período", "status", "descrição", "n°", "nº"}
+
     tabelas = soup.select("table")
     if tabelas:
-        HEADERS_SKIP = {"sistema", "data", "período", "status", "descrição", "n°", "nº"}
         for tabela in tabelas:
             for row in tabela.select("tr")[1:MAX_ITEMS + 1]:
                 cells = row.find_all(["td", "th"])
                 if not cells:
                     continue
-                titulo = _txt(cells[0])
-                if not titulo or titulo.lower() in HEADERS_SKIP or len(titulo) < 5:
+                col0 = _txt(cells[0])
+                if not col0 or col0.lower() in HEADERS_SKIP:
                     continue
-                resumo = " | ".join(_txt(c) for c in cells[1:3]) if len(cells) > 1 else ""
+
+                # Se col[0] é apenas data/período, promove col[1] como título
+                if _RE_PURE_DATE.match(col0.strip()) and len(cells) > 1:
+                    titulo  = _txt(cells[1])
+                    periodo = col0
+                    resumo  = periodo + " | " + (
+                        " | ".join(_txt(c) for c in cells[2:4]) if len(cells) > 2 else ""
+                    )
+                else:
+                    titulo = col0
+                    resumo = " | ".join(_txt(c) for c in cells[1:3]) if len(cells) > 1 else ""
+                    periodo = ""
+
+                if not titulo or len(titulo) < 5:
+                    continue
+
                 a = row.find("a")
                 link = _abs(a.get("href", "") if a else "", base_url)
                 results.append({"titulo": titulo, "resumo": resumo, "link": link})
         return results
-    # Fallback: lista de parágrafos
+
+    # Fallback: li/p — remove navegação e exige conteúdo mínimo real
+    for tag in soup.select(_NAV_TAGS):
+        tag.decompose()
+
     for item in soup.select("li, p")[:MAX_ITEMS]:
         texto = _txt(item)
-        if len(texto) > 20:
-            a = item.find("a")
-            link = _abs(a.get("href", "") if a else "", base_url)
-            results.append({"titulo": texto[:150], "resumo": texto, "link": link})
+        # Exige 40+ chars e rejeita itens que são só uma data
+        if len(texto) < 40 or _RE_PURE_DATE.match(texto.strip()):
+            continue
+        a = item.find("a")
+        link = _abs(a.get("href", "") if a else "", base_url)
+        results.append({"titulo": texto[:150], "resumo": texto, "link": link})
     return results
 
 
@@ -2626,6 +2679,70 @@ def parse_telegram(soup, acronym, base_url):
     return results
 
 
+# Regex de separação entre entradas do PROJUDI: "DD/MM/AAAA HH:MM" no início de linha
+_RE_PROJUDI_ENTRY = re.compile(r'(\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2})')
+
+
+def parse_projudi(soup, acronym, base_url):
+    """
+    Parser para páginas PROJUDI (TJPR, TJRR) que exibem o histórico completo
+    de indisponibilidades como um bloco de texto corrido.
+
+    Estratégia:
+    - Extrai o texto da área de conteúdo principal.
+    - Divide por padrão "DD/MM/AAAA HH:MM" (início de cada entrada).
+    - Para cada entrada, constrói: título = "DATA — DESCRIÇÃO", resumo = descrição.
+    - Retorna no máximo MAX_ITEMS entradas mais recentes (topo da lista).
+    """
+    # Foca na área de conteúdo, removendo nav/menus
+    for tag in soup.select(_NAV_TAGS):
+        tag.decompose()
+    area = soup.select_one(
+        "main, .main-content, #content, .portlet-body, "
+        ".journal-content-article, .asset-full-content, article"
+    ) or soup
+
+    texto = area.get_text(separator="\n", strip=True)
+    partes = _RE_PROJUDI_ENTRY.split(texto)
+    # partes = [texto_antes, data1, corpo1, data2, corpo2, ...]
+
+    if len(partes) < 3:
+        # Sem entradas detectadas — fallback ao parser genérico
+        return parse_generic_table(soup, acronym, base_url)
+
+    results = []
+    i = 1  # índice da primeira data
+    while i < len(partes) - 1 and len(results) < MAX_ITEMS:
+        data_inicio = partes[i].strip()
+        corpo       = partes[i + 1] if i + 1 < len(partes) else ""
+
+        # Extrai a descrição: primeira linha não-vazia após a data-fim e o " - "
+        descricao = ""
+        for linha in corpo.split("\n"):
+            linha = linha.strip()
+            if not linha or linha == "a":
+                continue
+            if _RE_PROJUDI_ENTRY.match(linha):  # data-fim → pula
+                continue
+            if linha.startswith("- "):
+                descricao = linha[2:].strip()
+                break
+            if len(linha) > 15:
+                descricao = linha
+                break
+
+        if descricao:
+            titulo = f"{data_inicio} — {descricao[:120]}"
+            results.append({
+                "titulo": titulo,
+                "resumo": descricao,
+                "link":   base_url,
+            })
+        i += 2
+
+    return results
+
+
 # ---------------------------------------------------------------------------
 # Mapa unificado de parsers
 # ---------------------------------------------------------------------------
@@ -2633,6 +2750,7 @@ PARSERS = {
     # Subsistema 1 — indisponibilidades
     "generic_news":  parse_generic_news,
     "generic_table": parse_generic_table,
+    "projudi":       parse_projudi,
     "tjsp":          parse_tjsp,
     "tjmg":          parse_tjmg,
     "tjpr":          parse_tjpr,

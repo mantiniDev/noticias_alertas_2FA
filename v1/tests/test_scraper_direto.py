@@ -21,6 +21,7 @@ from core.scraper_direto import (
     _abs,
     parse_generic_news,
     parse_generic_table,
+    parse_projudi,
     parse_tjsp,
     parse_telegram,
     PARSERS,
@@ -71,6 +72,44 @@ HTML_TJSP = """
       <td><a href="/comunicados/122">Atualização do certificado digital A3</a></td>
     </tr>
   </table>
+</body></html>
+"""
+
+HTML_TABLE_DATE_COL0 = """
+<html><body>
+  <table>
+    <tr><th>Período</th><th>Sistema</th><th>Descrição</th></tr>
+    <tr><td>09/03/2026 das 06:00 até 09/03/2026 às 12:30</td><td>PJe 1G</td><td>Manutenção programada</td></tr>
+    <tr><td>07/05/2026 09:00</td><td>eproc TJPR</td><td>Instabilidade banco de dados</td></tr>
+  </table>
+</body></html>
+"""
+
+HTML_PROJUDI = """
+<html><body>
+  <main>
+    <p>Histórico de Indisponibilidades</p>
+    11/05/2026 13:00
+    a
+    11/05/2026 16:03
+    - Indisponibilidade do sistema entre 13h e 16h03m, no dia 11/05/2026.
+    27/04/2026 19:00
+    a
+    27/04/2026 21:00
+    - Indisponibilidade do sistema entre 19h e 21h, no dia 27/04/2026.
+  </main>
+</body></html>
+"""
+
+HTML_TABLE_NAV_GARBAGE = """
+<html><body>
+  <nav>
+    <li>Unidades Administrativas</li>
+    <li>Gestão Documental e Memória</li>
+  </nav>
+  <main>
+    <p>Pular para o Conteúdo</p>
+  </main>
 </body></html>
 """
 
@@ -198,8 +237,8 @@ class TestFontes:
                 f"{f['acronym']}: noticias URL '{n['url']}' não começa com https"
 
     def test_tribunais_direto_derivado_corretamente(self):
-        """_to_alertas_entry produz 63 entradas com todos os campos planos."""
-        assert len(TRIBUNAIS_DIRETO) == 63
+        """_to_alertas_entry produz 61 entradas com todos os campos planos."""
+        assert len(TRIBUNAIS_DIRETO) == 61
 
     def test_fontes_noticias_derivado_corretamente(self):
         """_to_noticias_entries produz 104 entradas com todos os campos planos."""
@@ -209,8 +248,8 @@ class TestFontes:
 class TestTribunaisDireto:
     CAMPOS_OBRIGATORIOS = {"acronym", "nome", "url", "parser", "base_url", "fase", "tipo", "grupo"}
 
-    def test_tem_exatamente_63_fontes(self):
-        assert len(TRIBUNAIS_DIRETO) == 63
+    def test_tem_exatamente_61_fontes(self):
+        assert len(TRIBUNAIS_DIRETO) == 61
 
     @pytest.mark.parametrize("t", TRIBUNAIS_DIRETO)
     def test_campos_obrigatorios(self, t):
@@ -310,6 +349,65 @@ class TestParseGenericTable:
     def test_resumo_inclui_colunas_extras(self):
         result = parse_generic_table(self._soup(), "TRF1", "https://trf1.jus.br")
         assert "10/06 08h" in result[0]["resumo"]
+
+
+class TestParseGenericTableDateCol0:
+    """Garante que quando col[0] é data, col[1] é promovida como título."""
+
+    def _soup(self):
+        return BeautifulSoup(HTML_TABLE_DATE_COL0, "lxml")
+
+    def test_retorna_dois_itens(self):
+        result = parse_generic_table(self._soup(), "TJCE", "https://tjce.jus.br")
+        assert len(result) == 2
+
+    def test_titulo_nao_e_data(self):
+        result = parse_generic_table(self._soup(), "TJCE", "https://tjce.jus.br")
+        # O título deve ser o nome do sistema, não a data
+        assert "PJe 1G" in result[0]["titulo"]
+        assert "eproc TJPR" in result[1]["titulo"]
+
+    def test_resumo_contem_periodo(self):
+        result = parse_generic_table(self._soup(), "TJCE", "https://tjce.jus.br")
+        # O período (col[0]) deve migrar para o resumo
+        assert "09/03/2026" in result[0]["resumo"]
+
+
+class TestParseGenericTableFallbackNavClean:
+    """Fallback li/p deve ignorar elementos de navegação."""
+
+    def _soup(self):
+        return BeautifulSoup(HTML_TABLE_NAV_GARBAGE, "lxml")
+
+    def test_nao_extrai_nav_items(self):
+        result = parse_generic_table(self._soup(), "TRT24", "https://trt24.jus.br")
+        # "Unidades Administrativas" (nav) e "Pular para o Conteúdo" (< 40 chars) não devem aparecer
+        titulos = [r["titulo"] for r in result]
+        assert not any("Unidades Administrativas" in t for t in titulos)
+        assert not any("Pular para o Conteúdo" in t for t in titulos)
+
+
+class TestParseProjudi:
+    """parse_projudi deve dividir o histórico em entradas individuais."""
+
+    def _soup(self):
+        return BeautifulSoup(HTML_PROJUDI, "lxml")
+
+    def test_retorna_duas_entradas(self):
+        result = parse_projudi(self._soup(), "TJPR", "https://projudi.tjpr.jus.br")
+        assert len(result) == 2
+
+    def test_titulo_contem_data_e_descricao(self):
+        result = parse_projudi(self._soup(), "TJPR", "https://projudi.tjpr.jus.br")
+        assert "11/05/2026" in result[0]["titulo"]
+        assert "Indisponibilidade" in result[0]["titulo"]
+
+    def test_resumo_contem_descricao(self):
+        result = parse_projudi(self._soup(), "TJPR", "https://projudi.tjpr.jus.br")
+        assert "Indisponibilidade" in result[0]["resumo"]
+
+    def test_parser_registrado_em_parsers(self):
+        assert "projudi" in PARSERS
 
 
 class TestParseTjsp:

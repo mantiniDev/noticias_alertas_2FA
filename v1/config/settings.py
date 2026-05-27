@@ -292,7 +292,10 @@ TERMOS_BLOQUEADOS = [
     # 4. Barreiras contra Eleições
     "local de votação", "seções eleitorais", "mesária", "janela partidária", "título de eleitor", "eleições",
     
-    # 5. Barreiras contra Semanas Específicas
+    # 5. Spam em RSS (Google News injeta artigos de cassinos/apostas sob nomes de tribunais)
+    "cassino", "apostas", "aposta", "bônus", "slots", "roleta",
+
+    # 6. Barreiras contra Semanas Específicas
     "semana da mulher", "semana da justiça", "semana do meio ambiente", "semana da diversidade", 
     "semana do consumidor", "semana do trânsito", "semana da saúde", "semana do idoso", "semana da criança", 
     "semana do adolescente", "semana do servidor público", "semana do advogado", "semana do estagiário", 
