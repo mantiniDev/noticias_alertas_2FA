@@ -3,14 +3,14 @@
 Motor secundário do MAST — dois subsistemas independentes de varredura direta.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Subsistema 1 — TRIBUNAIS_DIRETO  (10 fontes originais)
+ Subsistema 1 — TRIBUNAIS_DIRETO  (18 fontes)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Varredura de páginas de INDISPONIBILIDADE dos 10 tribunais
-  prioritários, com parsers especializados por tribunal.
+  Varredura de páginas de INDISPONIBILIDADE dos 18 tribunais,
+  com parsers especializados por tribunal.
   Função pública: buscar_noticias_direto()
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- Subsistema 2 — FONTES_NOTICIAS  (34 fontes expandidas)
+ Subsistema 2 — FONTES_NOTICIAS  (37 fontes expandidas)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Varredura de páginas de NOTÍCIAS, NORMATIVOS e RELEASES de:
     • Sistemas / CNJ
@@ -60,7 +60,7 @@ HEADERS = {
 }
 
 # ===========================================================================
-# SUBSISTEMA 1 — TRIBUNAIS_DIRETO (10 fontes originais — NÃO ALTERAR)
+# SUBSISTEMA 1 — TRIBUNAIS_DIRETO (18 fontes)
 # Foco: páginas de indisponibilidade com parsers especializados por tribunal
 # ===========================================================================
 TRIBUNAIS_DIRETO = [
@@ -138,6 +138,63 @@ TRIBUNAIS_DIRETO = [
         "force_playwright": True,
         "wait_selector": "table, .indisponibilidade, .card",
         "extra_wait": 4,     # segundos extras após networkidle (SPA lento)
+    },
+    # ── Expansão: indisponibilidade dos demais TRFs, TRTs e TJBA ────────────
+    {
+        "acronym": "TRF2",
+        "name": "Tribunal Regional Federal da 2ª Região",
+        "url": "https://www.trf2.jus.br/jf2/aviso-jf2/",
+        "parser": "generic_news",
+        "base_url": "https://www.trf2.jus.br",
+    },
+    {
+        "acronym": "TRF3",
+        "name": "Tribunal Regional Federal da 3ª Região",
+        "url": "https://www.trf3.jus.br/seti/indisponibilidade-dos-sistemas-judiciais-eletronicos",
+        "parser": "generic_news",
+        "base_url": "https://www.trf3.jus.br",
+    },
+    {
+        "acronym": "TRF4",
+        "name": "Tribunal Regional Federal da 4ª Região",
+        "url": "https://www.trf4.jus.br/trf4/controlador.php?acao=aviso_listar&id_orgao=1",
+        "parser": "generic_news",
+        "base_url": "https://www.trf4.jus.br",
+    },
+    {
+        "acronym": "TRF6",
+        "name": "Tribunal Regional Federal da 6ª Região",
+        "url": "https://portal.trf6.jus.br/avisos/",
+        "parser": "generic_news",
+        "base_url": "https://portal.trf6.jus.br",
+    },
+    {
+        "acronym": "TRT1",
+        "name": "TRT 1ª Região (Rio de Janeiro)",
+        "url": "https://www.trt1.jus.br/certidao-de-indisponibilidade",
+        "parser": "generic_table",
+        "base_url": "https://www.trt1.jus.br",
+    },
+    {
+        "acronym": "TRT2",
+        "name": "TRT 2ª Região (São Paulo)",
+        "url": "https://aplicacoes8.trt2.jus.br/sis/indisponibilidade/consulta",
+        "parser": "generic_table",
+        "base_url": "https://aplicacoes8.trt2.jus.br",
+    },
+    {
+        "acronym": "TRT4",
+        "name": "TRT 4ª Região (Rio Grande do Sul)",
+        "url": "https://www.trt4.jus.br/portais/trt4/pje-indisponibilidade",
+        "parser": "generic_table",
+        "base_url": "https://www.trt4.jus.br",
+    },
+    {
+        "acronym": "TJBA",
+        "name": "Tribunal de Justiça da Bahia",
+        "url": "https://www.tjba.jus.br/portal/aviso-indisponibilidade/",
+        "parser": "generic_news",
+        "base_url": "https://www.tjba.jus.br",
     },
 ]
 
@@ -347,6 +404,24 @@ FONTES_NOTICIAS = [
         "parser": "generic_news",
         "base_url": "https://www.tjba.jus.br",
     },
+    {
+        "nome": "TJTO - Notícias",
+        "acronym": "TJTO",
+        "url": "https://www.tjto.jus.br/comunicacao/noticias",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjto.jus.br",
+    },
+    {
+        "nome": "TJPI - Notícias",
+        "acronym": "TJPI",
+        "url": "https://www.tjpi.jus.br/portaltjpi/noticias/",
+        "tipo": "Notícias",
+        "grupo": "Tribunais-Estaduais",
+        "parser": "generic_news",
+        "base_url": "https://www.tjpi.jus.br",
+    },
 
     # ── Tribunais Regionais Federais ─────────────────────────────────────────
     {
@@ -467,6 +542,15 @@ FONTES_NOTICIAS = [
         "grupo": "TRTs",
         "parser": "generic_news",
         "base_url": "https://www.trt4.jus.br",
+    },
+    {
+        "nome": "TRT15 - Notícias",
+        "acronym": "TRT15",
+        "url": "https://trt15.jus.br/noticia/",
+        "tipo": "Notícias",
+        "grupo": "TRTs",
+        "parser": "generic_news",
+        "base_url": "https://trt15.jus.br",
     },
 ]
 

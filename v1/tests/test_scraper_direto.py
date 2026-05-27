@@ -144,8 +144,8 @@ class TestAbs:
 class TestTribunaisDireto:
     CAMPOS_OBRIGATORIOS = {"acronym", "name", "url", "parser", "base_url"}
 
-    def test_tem_exatamente_10_fontes(self):
-        assert len(TRIBUNAIS_DIRETO) == 10
+    def test_tem_exatamente_18_fontes(self):
+        assert len(TRIBUNAIS_DIRETO) == 18
 
     @pytest.mark.parametrize("t", TRIBUNAIS_DIRETO)
     def test_campos_obrigatorios(self, t):
@@ -167,8 +167,8 @@ class TestFontesNoticias:
     CAMPOS_OBRIGATORIOS = {"nome", "acronym", "url", "tipo", "grupo", "parser", "base_url"}
     GRUPOS_VALIDOS = set(_GRUPOS_LABEL.keys())
 
-    def test_tem_34_fontes(self):
-        assert len(FONTES_NOTICIAS) == 34
+    def test_tem_37_fontes(self):
+        assert len(FONTES_NOTICIAS) == 37
 
     @pytest.mark.parametrize("f", FONTES_NOTICIAS)
     def test_campos_obrigatorios(self, f):
