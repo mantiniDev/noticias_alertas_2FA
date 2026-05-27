@@ -143,14 +143,14 @@ class TestAbs:
 # ---------------------------------------------------------------------------
 
 class TestFontes:
-    """Testa a estrutura da lista unificada FONTES (28 entradas nested)."""
+    """Testa a estrutura da lista unificada FONTES (47 entradas nested)."""
 
     CAMPOS_OBRIGATORIOS = {"acronym", "nome", "grupo", "alertas", "noticias"}
     CAMPOS_ALERTAS      = {"url", "parser", "base_url"}
     CAMPOS_NOTICIAS     = {"nome", "url", "parser", "base_url", "tipo"}
 
-    def test_tem_28_entradas(self):
-        assert len(FONTES) == 28
+    def test_tem_47_entradas(self):
+        assert len(FONTES) == 47
 
     @pytest.mark.parametrize("f", FONTES)
     def test_campos_obrigatorios(self, f):
@@ -198,19 +198,19 @@ class TestFontes:
                 f"{f['acronym']}: noticias URL '{n['url']}' não começa com https"
 
     def test_tribunais_direto_derivado_corretamente(self):
-        """_to_alertas_entry produz 18 entradas com todos os campos planos."""
-        assert len(TRIBUNAIS_DIRETO) == 18
+        """_to_alertas_entry produz 35 entradas com todos os campos planos."""
+        assert len(TRIBUNAIS_DIRETO) == 35
 
     def test_fontes_noticias_derivado_corretamente(self):
-        """_to_noticias_entries produz 37 entradas com todos os campos planos."""
-        assert len(FONTES_NOTICIAS) == 37
+        """_to_noticias_entries produz 56 entradas com todos os campos planos."""
+        assert len(FONTES_NOTICIAS) == 56
 
 
 class TestTribunaisDireto:
     CAMPOS_OBRIGATORIOS = {"acronym", "nome", "url", "parser", "base_url", "fase", "tipo", "grupo"}
 
-    def test_tem_exatamente_18_fontes(self):
-        assert len(TRIBUNAIS_DIRETO) == 18
+    def test_tem_exatamente_35_fontes(self):
+        assert len(TRIBUNAIS_DIRETO) == 35
 
     @pytest.mark.parametrize("t", TRIBUNAIS_DIRETO)
     def test_campos_obrigatorios(self, t):
@@ -232,8 +232,8 @@ class TestFontesNoticias:
     CAMPOS_OBRIGATORIOS = {"nome", "acronym", "url", "tipo", "grupo", "parser", "base_url", "fase"}
     GRUPOS_VALIDOS = set(_GRUPOS_LABEL.keys())
 
-    def test_tem_37_fontes(self):
-        assert len(FONTES_NOTICIAS) == 37
+    def test_tem_56_fontes(self):
+        assert len(FONTES_NOTICIAS) == 56
 
     @pytest.mark.parametrize("f", FONTES_NOTICIAS)
     def test_campos_obrigatorios(self, f):
