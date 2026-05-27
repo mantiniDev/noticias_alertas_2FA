@@ -142,7 +142,7 @@ class TestAbs:
 # ---------------------------------------------------------------------------
 
 class TestTribunaisDireto:
-    CAMPOS_OBRIGATORIOS = {"acronym", "name", "url", "parser", "base_url"}
+    CAMPOS_OBRIGATORIOS = {"acronym", "nome", "url", "parser", "base_url", "fase", "tipo", "grupo"}
 
     def test_tem_exatamente_18_fontes(self):
         assert len(TRIBUNAIS_DIRETO) == 18
@@ -164,7 +164,7 @@ class TestTribunaisDireto:
 
 
 class TestFontesNoticias:
-    CAMPOS_OBRIGATORIOS = {"nome", "acronym", "url", "tipo", "grupo", "parser", "base_url"}
+    CAMPOS_OBRIGATORIOS = {"nome", "acronym", "url", "tipo", "grupo", "parser", "base_url", "fase"}
     GRUPOS_VALIDOS = set(_GRUPOS_LABEL.keys())
 
     def test_tem_37_fontes(self):
