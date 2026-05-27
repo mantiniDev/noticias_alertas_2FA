@@ -10,8 +10,8 @@ Motor secundário do MAST — lista unificada de fontes por tribunal.
     noticias : list[dict]   — lista de fontes de notícias/normativos
 
   Listas planas derivadas:
-    TRIBUNAIS_DIRETO — 68 entradas de alertas → buscar_noticias_direto()
-    FONTES_NOTICIAS  — 106 entradas de noticias → buscar_noticias_fontes()
+    TRIBUNAIS_DIRETO — 63 entradas de alertas → buscar_noticias_direto()
+    FONTES_NOTICIAS  — 104 entradas de noticias → buscar_noticias_fontes()
                        agrupadas por: Sistemas/CNJ, Superiores, TJEs, TRFs, TRTs
 
 Integração:
@@ -70,8 +70,8 @@ HEADERS = {
 #   O acronym do item herda do parent, mas pode ser sobrescrito com acronym local.
 #
 # Listas derivadas (usadas pelos dois pipelines e pelos testes):
-#   TRIBUNAIS_DIRETO = lista plana de entradas de alertas (68 fontes)
-#   FONTES_NOTICIAS  = lista plana de todas as entradas de noticias (106 fontes)
+#   TRIBUNAIS_DIRETO = lista plana de entradas de alertas (63 fontes)
+#   FONTES_NOTICIAS  = lista plana de todas as entradas de noticias (104 fontes)
 # ===========================================================================
 FONTES: list[dict] = [
 
@@ -185,9 +185,9 @@ FONTES: list[dict] = [
         "alertas": None,
         "noticias": [
             {
-                "nome": "STJ - Últimas Notícias",
-                "url": "https://www.stj.jus.br/sites/portalp/Comunicacao/Ultimas-noticias",
-                "parser": "generic_news",
+                "nome": "STJ - RSS Notícias",
+                "url": "https://res.stj.jus.br/hrestp-c-portalp/RSS.xml",
+                "parser": "rss",
                 "base_url": "https://www.stj.jus.br",
                 "tipo": "Notícias",
             },
@@ -355,28 +355,14 @@ FONTES: list[dict] = [
         "nome": "Tribunal de Justiça do Rio Grande do Sul",
         "grupo": "Tribunais-Estaduais",
         "principal": True,
-        "alertas": {
-            "nome": "TJRS - Indisponibilidade",
-            "url": "https://www.tjrs.jus.br/novo/processos-e-servicos/consultas-processuais/certidoes-indisponibilidade/",
-            "parser": "generic_table",
-            "base_url": "https://www.tjrs.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,
         "noticias": [
             {
                 "nome": "TJRS - Notícias",
-                "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/noticias/",
+                "url": "https://www.tjrs.jus.br/novo/comunicacao/noticias-do-tjrs/",
                 "parser": "generic_news",
                 "base_url": "https://www.tjrs.jus.br",
                 "tipo": "Notícias",
-            },
-            {
-                "acronym": "TJRS-Adm",
-                "nome": "TJRS - Publicações Administrativas",
-                "url": "https://www.tjrs.jus.br/novo/jurisprudencia-e-legislacao/publicacoes-administrativas-do-tjrs/",
-                "parser": "generic_news",
-                "base_url": "https://www.tjrs.jus.br",
-                "tipo": "Normativos",
             },
         ],
     },
@@ -477,6 +463,7 @@ FONTES: list[dict] = [
             "parser": "generic_news",
             "base_url": "https://www.tjpi.jus.br",
             "tipo": "Indisponibilidade",
+            "skip_playwright": True,
         },
         "noticias": [
             {
@@ -485,6 +472,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjpi.jus.br",
                 "tipo": "Notícias",
+                "skip_playwright": True,
             },
         ],
     },
@@ -586,13 +574,7 @@ FONTES: list[dict] = [
         "nome": "Tribunal de Justiça do Amapá",
         "grupo": "Tribunais-Estaduais",
         "principal": False,
-        "alertas": {
-            "nome": "TJAP - Indisponibilidade SIG",
-            "url": "https://sig.tjap.jus.br/deintel_grid_vw_ocorrencias_ext/deintel_grid_vw_ocorrencias_ext.php",
-            "parser": "generic_table",
-            "base_url": "https://sig.tjap.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,
         "noticias": [
             {
                 "nome": "TJAP - Notícias",
@@ -669,6 +651,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjdft.jus.br",
                 "tipo": "Notícias",
+                "skip_playwright": True,
             },
         ],
     },
@@ -770,13 +753,7 @@ FONTES: list[dict] = [
         "nome": "Tribunal de Justiça do Mato Grosso do Sul",
         "grupo": "Tribunais-Estaduais",
         "principal": False,
-        "alertas": {
-            "nome": "TJMS - Monitoramento e-SAJ",
-            "url": "https://www5.tjms.jus.br/monitoramentoEsaj/",
-            "parser": "generic_table",
-            "base_url": "https://www5.tjms.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,
         "noticias": [
             {
                 "nome": "TJMS - Notícias",
@@ -810,13 +787,7 @@ FONTES: list[dict] = [
         "nome": "Tribunal de Justiça da Paraíba",
         "grupo": "Tribunais-Estaduais",
         "principal": False,
-        "alertas": {
-            "nome": "TJPB - Períodos de Indisponibilidade PJe",
-            "url": "https://www.tjpb.jus.br/pje/periodos-de-indisponibilidade",
-            "parser": "generic_table",
-            "base_url": "https://www.tjpb.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,
         "noticias": [
             {
                 "nome": "TJPB - Notícias",
@@ -1013,13 +984,7 @@ FONTES: list[dict] = [
         "nome": "Tribunal Regional Federal da 3ª Região",
         "grupo": "TRFs",
         "principal": False,
-        "alertas": {
-            "nome": "TRF3 - Indisponibilidade SETI",
-            "url": "https://www.trf3.jus.br/seti/indisponibilidade-dos-sistemas-judiciais-eletronicos",
-            "parser": "generic_news",
-            "base_url": "https://www.trf3.jus.br",
-            "tipo": "Indisponibilidade",
-        },
+        "alertas": None,
         "noticias": [
             {
                 "nome": "TRF3 - Últimas Notícias",
@@ -1135,14 +1100,6 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.trt1.jus.br",
                 "tipo": "Notícias",
-            },
-            {
-                "acronym": "TRT1-Bib",
-                "nome": "TRT1 - Biblioteca Digital (Atos)",
-                "url": "https://bibliotecadigital.trt1.jus.br/jspui/handle/1001/6",
-                "parser": "generic_table",
-                "base_url": "https://bibliotecadigital.trt1.jus.br",
-                "tipo": "Normativos",
             },
         ],
     },
@@ -2232,8 +2189,8 @@ def _to_noticias_entries(f: dict) -> list[dict]:
 
 
 # Listas derivadas — usadas pelos dois pipelines e pelos testes
-TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 68 fontes
-FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 106 fontes
+TRIBUNAIS_DIRETO = [e for f in FONTES if (e := _to_alertas_entry(f)) is not None]   # 63 fontes
+FONTES_NOTICIAS  = [e for f in FONTES for e in _to_noticias_entries(f)]              # 104 fontes
 
 # ---------------------------------------------------------------------------
 # Camada de fetch (compartilhada pelos dois subsistemas)
@@ -2306,12 +2263,26 @@ def fetch_page(fonte: dict):
     """
     Orquestra a tentativa de fetch para qualquer dict de fonte.
     force_playwright=True → vai direto pro Playwright (SPA conhecida).
+    parser="rss"          → faz requests com lxml-xml (nunca usa Playwright).
+    skip_playwright=True  → usa apenas requests; não tenta Playwright como fallback.
     Caso contrário tenta requests; se retornar vazio, cai para Playwright.
     """
     url              = fonte["url"]
     force_playwright = fonte.get("force_playwright", False)
     wait_selector    = fonte.get("wait_selector")
     extra_wait       = fonte.get("extra_wait", 3)
+
+    # Feeds RSS/XML — parser lxml-xml, nunca usa Playwright
+    if fonte.get("parser") == "rss":
+        try:
+            resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=True)
+            resp.raise_for_status()
+            if len(resp.text) < 100:
+                return None
+            return BeautifulSoup(resp.text, "lxml-xml")
+        except Exception as exc:
+            log.debug("RSS fetch falhou para %s: %s", url, exc)
+            return None
 
     if force_playwright:
         log.info("  → Playwright forçado (SPA).")
@@ -2320,6 +2291,9 @@ def fetch_page(fonte: dict):
     soup = _fetch_requests(url)
     if soup:
         return soup
+
+    if fonte.get("skip_playwright"):
+        return None
 
     log.info("  → requests sem conteúdo útil, tentando Playwright...")
     return _fetch_playwright(url, wait_selector, extra_wait)
@@ -2584,6 +2558,28 @@ def parse_tjpr(soup, acronym, base_url):
 # Parsers — Subsistema 2 (notícias expandidas — novos)
 # ---------------------------------------------------------------------------
 
+def parse_rss(soup, acronym, base_url):
+    """
+    Parser para feeds RSS/Atom (XML).
+    Extrai título, link e resumo de cada <item>.
+    Usar com parser="rss" no dict de fonte — fetch_page usa lxml-xml nesse caso.
+    """
+    results = []
+    for item in soup.find_all("item")[:MAX_ITEMS]:
+        titulo = _txt(item.find("title"))
+        # <link> em RSS é texto direto; <guid> serve de fallback
+        link_tag = item.find("link")
+        link = (link_tag.get_text(strip=True) if link_tag else "").strip()
+        if not link:
+            guid_tag = item.find("guid")
+            link = _txt(guid_tag) if guid_tag else _abs("", base_url)
+        resumo_tag = item.find("description") or item.find("summary")
+        resumo = _txt(resumo_tag) if resumo_tag else ""
+        if titulo and len(titulo) > 10:
+            results.append({"titulo": titulo, "resumo": resumo, "link": link or _abs("", base_url)})
+    return results
+
+
 def parse_telegram(soup, acronym, base_url):
     """
     Canal Telegram via preview web (t.me/s/channel).
@@ -2644,6 +2640,7 @@ PARSERS = {
     "trf5":          parse_trf5,
     # Subsistema 2 — notícias expandidas
     "telegram":      parse_telegram,
+    "rss":           parse_rss,
 }
 
 # ---------------------------------------------------------------------------
