@@ -4,11 +4,11 @@ Orquestrador principal do MAST.
 
 Fase 1 — Scraper RSS (Google News)       → buscar_noticias_semanais()
 Fase 2 — Scraper Direto (tribunais)      → buscar_noticias_direto()
-Fase 3 — Notícias Expandidas (106 fontes) → buscar_noticias_fontes()
+Fase 3 — Notícias Expandidas (104 fontes) → buscar_noticias_fontes()
 
-Fases 1+2 são unificadas, deduplicadas e compõem a seção de alertas
-do e-mail. A Fase 3 é exibida em seção separada, agrupada por categoria
-(Sistemas/CNJ, Tribunais Superiores, TJEs, TRFs, TRTs).
+Todas as fases são unificadas em um único dict {grupo: [itens]} e exibidas
+em relatório categorizado por: Sistemas/CNJ, Tribunais Superiores,
+TJEs, TRFs, TRTs, TREs.
 CSV e PDF de auditoria são anexados ao e-mail (Fases 1+2 apenas).
 Google Sheets recebe todos os itens brutos das Fases 1+2.
 """
@@ -19,14 +19,30 @@ import os
 from datetime import datetime, timedelta
 
 from core.scraper import buscar_noticias_semanais
-from core.scraper_direto import buscar_noticias_direto, buscar_noticias_fontes, FONTES_NOTICIAS
-from core.notifier import gerar_corpos_email, enviar_email
+from core.scraper_direto import buscar_noticias_direto, buscar_noticias_fontes, FONTES_NOTICIAS, FONTES
+from core.notifier import gerar_corpos_email, enviar_email, _GRUPOS_LABEL
 from core.sheets_writer import enviar_para_sheets
 from core.database import init_db, buscar_dados_para_csv
 from core.csv_generator import gerar_csv_relatorio
 from core.pdf_generator import gerar_pdf_relatorio
 from config.settings import DIAS_JANELA, CSV_LIMITE_REGISTROS
 from core.filter import normalizar_titulo_chave
+
+# ── Mapeamento acrônimo → grupo (derivado da lista unificada de fontes) ────
+# Usado por _inferir_grupo_rss() para categorizar notícias RSS por tribunal.
+_ACRONYM_GRUPO: dict[str, str] = {f["acronym"]: f["grupo"] for f in FONTES}
+
+
+def _inferir_grupo_rss(titulo: str, fonte: str) -> str:
+    """
+    Tenta inferir o grupo de uma notícia RSS pelo acrônimo do tribunal no título.
+    Retorna "Sistemas-CNJ" como grupo padrão quando nenhum acrônimo é identificado.
+    """
+    titulo_upper = titulo.upper()
+    for acronym, grupo in _ACRONYM_GRUPO.items():
+        if acronym.upper() in titulo_upper:
+            return grupo
+    return "Sistemas-CNJ"
 
 
 def _configurar_logging() -> None:
@@ -90,7 +106,7 @@ if __name__ == "__main__":
     log.info("\n[Fase 3] Notícias Expandidas — %d fontes por categoria", len(FONTES_NOTICIAS))
     noticias_fontes = buscar_noticias_fontes()   # dict[grupo, list]
 
-    # ── Unificação e deduplicação por link E por conteúdo ─────────────
+    # ── Deduplicação Fases 1+2 por link E por conteúdo ────────────────
     # Dedup por link: evita o mesmo URL duas vezes.
     # Dedup por título: evita a mesma notícia com URLs diferentes
     #   (scraper direto usa URL do tribunal; RSS usa URL do Google News).
@@ -118,21 +134,49 @@ if __name__ == "__main__":
     caminho_csv = gerar_csv_relatorio(dados_banco)
     caminho_pdf = gerar_pdf_relatorio(dados_banco)
 
+    # ── Unificação das 3 fases em relatório único por categoria ───────
+    # Estrutura: {grupo: [itens]} — ordenado conforme _GRUPOS_LABEL
+    noticias_por_grupo: dict[str, list] = {g: [] for g in _GRUPOS_LABEL}
+
+    # Fases 1+2 (após dedup): inferir grupo via acrônimo no título
+    for n in noticias_unificadas:
+        grupo = n.get("grupo") or _inferir_grupo_rss(n["titulo"], n.get("fonte", ""))
+        item = dict(n)
+        item["grupo"] = grupo
+        item.setdefault("tipo", "Notícia")
+        dest = grupo if grupo in noticias_por_grupo else "Sistemas-CNJ"
+        noticias_por_grupo[dest].append(item)
+
+    # Fase 3 (notícias expandidas por categoria)
+    for grupo, itens in noticias_fontes.items():
+        if grupo in noticias_por_grupo:
+            noticias_por_grupo[grupo].extend(itens)
+        else:
+            log.warning("Grupo desconhecido na Fase 3: '%s' (%d itens ignorados)", grupo, len(itens))
+
+    # Ordenar cada categoria por data (mais recente primeiro)
+    for itens in noticias_por_grupo.values():
+        itens.sort(key=lambda x: x["data_obj"], reverse=True)
+
     # ── Log de resumo ──────────────────────────────────────────────────
     total_fontes = sum(len(v) for v in noticias_fontes.values())
+    total_geral  = sum(len(v) for v in noticias_por_grupo.values())
     log.info("\n%s", "─" * 60)
     log.info("  Notícias RSS aprovadas      : %d", len(noticias_rss))
     log.info("  Notícias Direto aprovadas   : %d", len(noticias_direto))
     log.info("  Total alertas (Fases 1+2)   : %d", len(noticias_unificadas))
     log.info("  Notícias Fontes (Fase 3)    : %d", total_fontes)
-    log.info("  TOTAL GERAL                 : %d", len(noticias_unificadas) + total_fontes)
+    log.info("  TOTAL GERAL                 : %d", total_geral)
+    for g, itens in noticias_por_grupo.items():
+        if itens:
+            log.info("    %-26s: %d", g, len(itens))
     log.info("%s\n", "─" * 60)
 
     # ── E-mail com CSV + PDF anexados ──────────────────────────────────
-    texto, html = gerar_corpos_email(noticias_unificadas, noticias_fontes)
+    texto, html = gerar_corpos_email(noticias_por_grupo)
     enviar_email(
         texto, html,
-        len(noticias_unificadas) + total_fontes,
+        total_geral,
         anexo_path=caminho_csv,
         pdf_path=caminho_pdf,
     )

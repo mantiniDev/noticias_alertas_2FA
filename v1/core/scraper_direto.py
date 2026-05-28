@@ -2325,38 +2325,82 @@ def _abs(href: str, base_url: str) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_generic_news(soup, acronym, base_url):
-    """Páginas de notícias com articles / h2-h3 links.
+    """Páginas de notícias — suporta múltiplos CMS (Liferay, Drupal, WordPress, custom).
 
-    Remove explicitamente navegação, rodapé e controles de acessibilidade
-    antes de processar — evita capturar itens de menu como notícias.
+    Estratégias em cascata:
+      1. <article> semântico
+      2. Classes de lista de notícias (Drupal views, Liferay asset-entries, custom)
+      3. Liferay asset-publisher / portlet-content
+      4. h2/h3/h4 com link dentro da área de conteúdo
+      5. Fallback: qualquer link com texto >= 25 chars na área de conteúdo
+
+    Remove nav/footer/acessibilidade antes de processar.
     """
     # Remove elementos que nunca contêm notícias reais
     for tag in soup.select(_NAV_TAGS):
         tag.decompose()
 
-    # Estratégia 1: <article> (estrutura semântica)
-    # Estratégia 2: classes comuns de listas de notícias
-    # Estratégia 3: fallback — h2/h3/h4 com link, apenas dentro de área de conteúdo
+    # Área de conteúdo principal — tenta do mais específico ao mais genérico
     area = soup.select_one(
-        "main, .main-content, #content, .content-area, "
-        ".portlet-body, .journal-content-article, #main-content"
+        "main, #main, .main-content, #content, #main-content, "
+        ".content-area, .portlet-body, .journal-content-article, "
+        ".portlet-content, .lfr-portlet-body, .asset-publisher-content, "
+        "#portal-content, .conteudo, #conteudo, .page-content"
     ) or soup
 
-    items = (
-        area.select("article")
-        or area.select(".views-row, .item-list li, .noticia-item")
-        or area.select("h2 a, h3 a, h4 a")
-    )
+    # ── Estratégia 1: <article> semântico ────────────────────────────
+    items = area.select("article")
+
+    # ── Estratégia 2: classes de lista comuns ─────────────────────────
+    if not items:
+        items = area.select(
+            ".views-row, .item-list li, .noticia-item, "
+            ".asset-entry, .asset-abstract, "
+            ".news-item, .news-list li, "
+            ".lista-noticias li, .listing li, "
+            "[class*='noticia']:not(nav), [class*='news-item']"
+        )
+
+    # ── Estratégia 3: Liferay asset-publisher ────────────────────────
+    if not items:
+        items = area.select(
+            ".asset-entries .asset-title a, "
+            ".portlet-asset-publisher .asset-title a, "
+            ".lfr-asset-list-item, "
+            ".search-results .portlet-title-text"
+        )
+
+    # ── Estratégia 4: headings com link ──────────────────────────────
+    if not items:
+        items = area.select("h2 a, h3 a, h4 a, .titulo a, .title a, .headline a")
+
+    # ── Estratégia 5: qualquer link substancial na área ───────────────
+    if not items:
+        items = [
+            a for a in area.select("a[href]")
+            if len(_txt(a)) >= 25
+            and not a.get("href", "").startswith("#")
+            and "javascript" not in a.get("href", "")
+        ]
+
     results = []
     for item in items[:MAX_ITEMS]:
-        a = item if item.name == "a" else item.find("a")
-        titulo = _txt(a) if a else _txt(item.find(["h2", "h3", "h4"]) or item)
-        link   = _abs(a.get("href", "") if a else "", base_url)
-        resumo_tag = item.find(["p", "span"], class_=lambda c: c and any(
-            k in c.lower() for k in ("resumo", "desc", "summary", "intro", "lead")
-        )) if hasattr(item, "find") else None
-        resumo = _txt(resumo_tag) if resumo_tag else ""
-        # Mínimo de 15 chars e não pode ser só data
+        if item.name == "a":
+            a     = item
+            titulo = _txt(a)
+            link   = _abs(a.get("href", ""), base_url)
+            parent = a.parent
+            resumo = _txt(parent) if parent and parent.name not in ("html", "body", "nav") else ""
+        else:
+            a     = item.find("a")
+            titulo = _txt(a) if a else _txt(item.find(["h2", "h3", "h4"]) or item)
+            link   = _abs(a.get("href", "") if a else "", base_url)
+            resumo_tag = item.find(["p", "span"], class_=lambda c: c and any(
+                k in c.lower() for k in ("resumo", "desc", "summary", "intro", "lead", "abstract")
+            )) if hasattr(item, "find") else None
+            resumo = _txt(resumo_tag) if resumo_tag else ""
+
+        # Mínimo 15 chars, não pode ser só data, não pode ser link de navegação
         if titulo and len(titulo) > 15 and not _RE_PURE_DATE.match(titulo.strip()):
             results.append({"titulo": titulo, "resumo": resumo, "link": link})
     return results
@@ -2765,14 +2809,18 @@ PARSERS = {
 # Helpers de montagem de notícia
 # ---------------------------------------------------------------------------
 
-def _montar_noticia_bruta(item: dict, acronym: str, name: str) -> dict:
-    """Formato padrão para o Subsistema 1 (indisponibilidades)."""
+def _montar_noticia_bruta(item: dict, acronym: str, name: str, grupo: str = "") -> dict:
+    """Formato padrão para o Subsistema 1 (indisponibilidades).
+    Inclui grupo e tipo para permitir agrupamento unificado no e-mail.
+    """
     return {
         "titulo":   item["titulo"],
         "resumo":   item.get("resumo", ""),
         "link":     item["link"],
         "data_obj": datetime.now(timezone.utc).replace(tzinfo=None),
         "fonte":    f"Scraper Direto — {acronym}",
+        "grupo":    grupo,
+        "tipo":     "Indisponibilidade",
     }
 
 
@@ -2839,7 +2887,7 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 continue
             links_ja_coletados.add(link)
 
-            noticia_bruta = _montar_noticia_bruta(item, acronym, name)
+            noticia_bruta = _montar_noticia_bruta(item, acronym, name, grupo=tribunal.get("grupo", ""))
 
             # Coleta bruta para Google Sheets (antes do filtro e banco)
             if brutas is not None:

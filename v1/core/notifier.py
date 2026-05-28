@@ -20,6 +20,7 @@ _GRUPOS_LABEL = {
     "Tribunais-Estaduais":  "Tribunais de Justiça Estaduais",
     "TRFs":                 "Tribunais Regionais Federais",
     "TRTs":                 "Tribunais Regionais do Trabalho",
+    "TREs":                 "Tribunais Regionais Eleitorais",
 }
 
 _GRUPOS_COR = {
@@ -28,15 +29,28 @@ _GRUPOS_COR = {
     "Tribunais-Estaduais":  "#27ae60",
     "TRFs":                 "#d35400",
     "TRTs":                 "#16a085",
+    "TREs":                 "#2980b9",
 }
 
 
 def gerar_corpos_email(
-    noticias: list[dict],
-    noticias_fontes: dict[str, list] | None = None,
+    noticias_por_grupo: dict[str, list],
 ) -> tuple[str, str]:
+    """
+    Gera o e-mail MAST unificado com todos os itens agrupados por categoria.
+
+    Recebe um único dict {grupo: [itens]} contendo as três fases mescladas:
+      • Fase 1 — RSS (tipo="Notícia")
+      • Fase 2 — Scraper Direto (tipo="Indisponibilidade")
+      • Fase 3 — Notícias Expandidas (tipo varia: "Notícias", "Normativos", …)
+
+    Itens com tipo="Indisponibilidade" recebem borda vermelha e badge de alerta.
+    Os demais itens recebem a cor do grupo ao qual pertencem.
+    """
     hoje = datetime.now().strftime("%d/%m/%Y")
     duas_dias_atras = (datetime.now() - timedelta(days=2)).strftime("%d/%m/%Y")
+
+    total = sum(len(v) for v in noticias_por_grupo.values())
 
     texto_puro = (
         f"MAST - Monitoramento Automatizado de Sistemas e Tribunais "
@@ -51,7 +65,7 @@ def gerar_corpos_email(
         <hr style="border: 1px solid #eee;">
     """
 
-    if not noticias:
+    if total == 0:
         msg_vazia = "Nenhuma notícia relevante de TI/Sistemas encontrada nos últimos 2 dias."
         texto_puro += msg_vazia + "\n"
         html += f"""
@@ -61,68 +75,16 @@ def gerar_corpos_email(
         </p>
         """
     else:
-        html += "<ul style='list-style-type: none; padding: 0;'>"
-
-        for i, noticia in enumerate(noticias, 1):
-            data_formatada = noticia['data_obj'].strftime("%d/%m/%Y às %H:%M")
-            titulo_lower = noticia['titulo'].lower()
-
-            link_oficial_html = ""
-            for tribunal in TRIBUNAIS:
-                if tribunal['acronym'].lower() in titulo_lower:
-                    link_oficial_html = f"""
-                        <br>
-                        <a href='{tribunal["url"]}'
-                           style='display: inline-block; margin-top: 8px; padding: 5px 10px;
-                                  background-color: #e8f4f8; color: #2980b9;
-                                  text-decoration: none; border-radius: 4px; font-size: 0.85em;'>
-                            🔗 Portal de indisponibilidade — {tribunal["acronym"]}
-                        </a>"""
-                    break
-
-            texto_puro += (
-                f"{i}. {noticia['titulo']}\n"
-                f"   Data: {data_formatada}\n"
-                f"   Link: {noticia['link']}\n\n"
-            )
-
-            html += f"""
-            <li style="margin-bottom: 20px; padding: 15px;
-                        border-left: 4px solid #3498db; background-color: #f9f9f9;">
-                <h3 style="margin: 0 0 10px 0;">
-                    <a href="{noticia['link']}" style="color: #2c3e50; text-decoration: none;">
-                        {noticia['titulo']}
-                    </a>
-                </h3>
-                <p style="margin: 0; font-size: 0.9em; color: #7f8c8d;">
-                    📅 {data_formatada} &nbsp;|&nbsp; 📰 Fonte: {noticia['fonte']}
-                </p>
-            </li>
-            """
-
-        html += "</ul>"
-
-    # ── Seção Fase 3: Notícias Expandidas por categoria ───────────────
-    total_fontes = sum(len(v) for v in (noticias_fontes or {}).values())
-    if noticias_fontes and total_fontes > 0:
-        texto_puro += "\n\n── Notícias e Normativos por Categoria ──\n"
-        html += """
-        <hr style="border: 1px solid #eee; margin-top: 30px;">
-        <h2 style="color: #2c3e50; margin-top: 20px;">
-            📰 Notícias e Normativos por Categoria
-        </h2>
-        """
-
         for grupo, label in _GRUPOS_LABEL.items():
-            itens = noticias_fontes.get(grupo, [])
+            itens = noticias_por_grupo.get(grupo, [])
             if not itens:
                 continue
 
-            cor = _GRUPOS_COR.get(grupo, "#7f8c8d")
+            cor_grupo = _GRUPOS_COR.get(grupo, "#7f8c8d")
             texto_puro += f"\n[{label}]\n"
             html += f"""
-        <h3 style="color: {cor}; margin: 20px 0 10px 0;
-                   padding-bottom: 5px; border-bottom: 2px solid {cor};">
+        <h3 style="color: {cor_grupo}; margin: 20px 0 10px 0;
+                   padding-bottom: 5px; border-bottom: 2px solid {cor_grupo};">
             {label}
         </h3>
         <ul style="list-style-type: none; padding: 0;">
@@ -130,20 +92,54 @@ def gerar_corpos_email(
 
             for noticia in itens:
                 data_fmt = noticia["data_obj"].strftime("%d/%m/%Y às %H:%M")
-                tipo_badge = noticia.get("tipo", "")
-                badge_html = (
-                    f"<span style='background:{cor}; color:white; font-size:0.75em; "
-                    f"padding:2px 6px; border-radius:3px; margin-left:6px;'>"
-                    f"{tipo_badge}</span>"
-                ) if tipo_badge else ""
+                tipo = noticia.get("tipo", "")
+                is_alerta = tipo == "Indisponibilidade"
+
+                # Borda: vermelho para alertas, cor do grupo para notícias
+                cor_borda = "#e74c3c" if is_alerta else cor_grupo
+
+                # Badge colorido
+                if is_alerta:
+                    badge_html = (
+                        "<span style='background:#e74c3c; color:white; font-size:0.75em; "
+                        "padding:2px 6px; border-radius:3px; margin-left:6px;'>"
+                        "🔴 Indisponibilidade</span>"
+                    )
+                    badge_txt = "[Alerta]"
+                elif tipo:
+                    badge_html = (
+                        f"<span style='background:{cor_grupo}; color:white; font-size:0.75em; "
+                        f"padding:2px 6px; border-radius:3px; margin-left:6px;'>"
+                        f"{tipo}</span>"
+                    )
+                    badge_txt = f"[{tipo}]"
+                else:
+                    badge_html = ""
+                    badge_txt = ""
+
+                # Link oficial de indisponibilidade (apenas para alertas)
+                link_oficial_html = ""
+                if is_alerta:
+                    titulo_lower = noticia["titulo"].lower()
+                    for tribunal in TRIBUNAIS:
+                        if tribunal["acronym"].lower() in titulo_lower:
+                            link_oficial_html = (
+                                f"<br><a href='{tribunal['url']}' "
+                                f"style='display:inline-block; margin-top:8px; padding:5px 10px; "
+                                f"background-color:#fde8e8; color:#c0392b; "
+                                f"text-decoration:none; border-radius:4px; font-size:0.85em;'>"
+                                f"🔗 Portal de indisponibilidade — {tribunal['acronym']}</a>"
+                            )
+                            break
 
                 texto_puro += (
-                    f"  • [{tipo_badge}] {noticia['titulo']}\n"
+                    f"  {badge_txt} {noticia['titulo']}\n"
+                    f"    Data: {data_fmt} | Fonte: {noticia['fonte']}\n"
                     f"    Link: {noticia['link']}\n\n"
                 )
                 html += f"""
             <li style="margin-bottom: 14px; padding: 12px;
-                        border-left: 4px solid {cor}; background-color: #fafafa;">
+                        border-left: 4px solid {cor_borda}; background-color: #fafafa;">
                 <div style="margin: 0 0 6px 0;">
                     <a href="{noticia['link']}"
                        style="color: #2c3e50; text-decoration: none; font-weight: 600;">
@@ -152,7 +148,7 @@ def gerar_corpos_email(
                 </div>
                 <p style="margin: 0; font-size: 0.85em; color: #7f8c8d;">
                     📅 {data_fmt} &nbsp;|&nbsp; 📰 {noticia['fonte']}
-                </p>
+                </p>{link_oficial_html}
             </li>
                 """
 
