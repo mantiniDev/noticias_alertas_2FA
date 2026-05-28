@@ -24,7 +24,7 @@ TRIBUNAIS = [
     # --- TRIBUNAIS DE JUSTIÇA ESTADUAIS (27 TJs) ---
     {"id": "101", "name": "Tribunal de Justiça do Acre 1g", "acronym": "TJAC",
         "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-1grau"},
-    {"id": "102", "name": "Tribunal de Justiça de Acre 2G", "acronym": "TJAC",
+    {"id": "102", "name": "Tribunal de Justiça de Acre 2G", "acronym": "TJAL",
         "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-2grau"},
     {"id": "103", "name": "Tribunal de Justiça de Alagoas", "acronym": "TJAL",
         "url": "https://www.tjal.jus.br/indisponibilidades"},
@@ -56,7 +56,7 @@ TRIBUNAIS = [
         "url": "https://www.tjpa.jus.br/PortalExterno/indexBibliotecaDigital.xhtml#resultados=&categoria=353&biblioteca=Documentos+Oficiais"},
     {"id": "117", "name": "Tribunal de Justiça da Paraíba 1G", "acronym": "TJPB",
         "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-1o-grau"},
-    {"id": "118", "name": "Tribunal de Justiça do Paraíba 2G", "acronym": "TJPB",
+    {"id": "118", "name": "Tribunal de Justiça do Paraíba 2G", "acronym": "TJPR",
         "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-2o-grau-e-turmas-recursais"},
     {"id": "119", "name": "Tribunal de Justiça do Paraná", "acronym": "TJPR",
         "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367#5924367"},
@@ -242,7 +242,7 @@ TERMOS_ESPECIFICOS = [
 TERMOS_FORTES_TI = [
     "pje", "eproc", "projudi", "esaj", "pdpj", 
     "2fa", "mfa", "duplo fator", "dois fatores", "multifator", "authenticator", 
-    "sso", "single sign-on", "captcha", "waf", "token", "ciberataque", 
+    "sso", "single sign-on", "captcha", "waf", "ciberataque", 
     "instabilidade no pje", "instabilidade no pdpj", "instabilidade no eproc", 
     "indisponibilidade no pje", "indisponibilidade no pdpj", "indisponibilidade no eproc", 
     "golpe do advogado", "portaria nº 140", "resolução nº 335", "certificado digital",
@@ -262,11 +262,15 @@ TERMOS_COMPOSTOS = [
     ["código", "acesso"], ["migração", "sistema"], ["novo", "sistema"],
     ["indisponibilidade", "pje"], ["indisponibilidade", "pdpj"], ["indisponibilidade", "eproc"],
     ["indisponibilidade", "esaj"], ["indisponibilidade", "projudi"], ["sistema", "no ar"],
-    ["sistemas", "no ar"],   
+    ["sistemas", "no ar"],
+
+    ["token", "pje"], ["token", "eproc"], ["token", "tribunal"],
+    ["token", "autenticação"], ["token", "certificado digital"], ["token", "acesso"],
+    ["token", "sistema judicial"],   
 ]
 
 TERMOS_BLOQUEADOS = [
-    # 1. Barreiras contra RH, Administração, Cursos e Inscrições (Resolve a Notícia 1)
+   # 1. Barreiras contra RH, Administração, Cursos e Inscrições (Resolve a Notícia 1)
     "estágio", "estagiário", "processo seletivo", "concurso", "vaga", "inscrições", 
     "inscrições deferidas", "curso", "coptrel", "grêmio", "orçamentário", "orçamento", 
     "custas judiciais", "gestão de pessoas", "recursos humanos", "comissão de concurso", "comissão de estágio", "comissão de seleção", 
@@ -278,17 +282,66 @@ TERMOS_BLOQUEADOS = [
     "whatsapp", "instagram", "facebook", "twitter", "x", "meta",
     
     # 3. Barreiras contra Termos Jurídicos de Rotina (Resolve a Notícia 1)
-    "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará", "acordo", 
+    "feminicídio", "popruajud", "indisponibilidade de bens", "bloqueio de bens", "penhora", "leilão", "alvará",
+    # "acordo" sozinho foi removido — era genérico demais e poderia suprimir "acordo de migração de sistemas".
+    # Substituído por frases compostas específicas:
+    "acordo de cooperação técnica", "acordo trabalhista", "acordo coletivo",
     "conciliação", "mediação", "audiência de custódia", "habeas data",
-    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa",
+    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa", "consulta de processos", "consulta processual", "certidão de objeto e pé", "certidão de inteiro teor", "certidão de antecedentes criminais", "certidão de distribuição", "certidão de protesto", "consulta de processos", "consulta processual", "jurisprudencia", "acórdão", "ementa",
     
     # 4. Barreiras contra Eleições
     "local de votação", "seções eleitorais", "mesária", "janela partidária", "título de eleitor", "eleições",
     
-    # 5. Barreiras contra Semanas Específicas
+    # 5. Spam em RSS (Google News injeta artigos de cassinos/apostas sob nomes de tribunais)
+    "cassino", "apostas", "aposta", "bônus", "slots", "roleta",
+
+    # 6. Barreiras contra Semanas Específicas
     "semana da mulher", "semana da justiça", "semana do meio ambiente", "semana da diversidade", 
     "semana do consumidor", "semana do trânsito", "semana da saúde", "semana do idoso", "semana da criança", 
     "semana do adolescente", "semana do servidor público", "semana do advogado", "semana do estagiário", 
     "semana do magistrado", "semana do promotor", "semana do defensor público", "semana do jurista", 
     "semana do trabalhador", "semana do empreendedor", "semana do cidadão"
 ]
+# Termos tão relevantes que anulam qualquer bloqueio da blacklist.
+# Se o título contiver qualquer um desses termos, o bloqueio é ignorado.
+TERMOS_IMUNES = [
+    "pje", "eproc", "esaj", "projudi", "pdpj",
+    "mfa", "2fa", "duplo fator", "dois fatores", "multifator",
+    "autenticacao", "authenticator", "certificado digital",
+    "indisponibilidade", "instabilidade", "ciberataque", "ransomware",
+]
+
+# ── Constantes operacionais ──────────────────────────────────────────────────
+# Centralizadas aqui para evitar magic numbers espalhados pelo código.
+# Para ajustar o comportamento do MAST, edite apenas esta seção.
+
+DIAS_JANELA          = 2        # janela de busca retroativa em dias (RSS + filtro local)
+LOTE_DOMINIOS        = 20       # domínios por query no Google News (evita URL > 2000 chars)
+LOTE_SIGLAS          = 10       # siglas de tribunais por query no Google News
+LOTE_TERMOS          = 5        # termos/frases por query no Google News
+TITULO_MIN_CHARS     = 15       # mínimo de chars úteis no título RSS para aceitar a entrada
+CSV_LIMITE_REGISTROS = 100      # máx de registros incluídos no CSV anexado ao e-mail
+REQUEST_TIMEOUT      = 15       # timeout HTTP em segundos (requests / scraper direto)
+PLAYWRIGHT_TIMEOUT   = 25_000   # timeout do Playwright em ms (SPAs / sites com JS)
+MAX_ITEMS            = 30       # máx de itens brutos coletados por tribunal no scraper direto
+SMTP_TENTATIVAS      = 3        # número de tentativas de envio do e-mail com backoff
+
+# ── Títulos de páginas genéricas de sistema ──────────────────────────────────
+# Google News às vezes indexa telas do próprio PJe/eproc (login, detalhe de
+# processo, consulta processual) em vez de notícias reais.
+# Quando o campo "fonte" do RSS for um domínio puro (sem espaços, ex:
+# "prd.tjrj.pje.jus.br") E o título_util corresponder a um destes padrões,
+# a entrada é descartada ANTES de chegar ao filtro de termos.
+# Adicione aqui qualquer outro título de tela de sistema que aparecer no futuro.
+TITULOS_PAGINAS_GENERICAS: tuple[str, ...] = (
+    r"processo\s+judicial\s+eletronico",   # tela inicial/login do PJe
+    r"detalhe\s+do\s+processo",            # página de detalhe de autos
+    r"consulta\s+processual",              # tela de consulta genérica
+    r"acesso\s+externo",                   # portal de acesso externo
+    r"pagina\s+inicial",                   # home page genérica
+    r"^login$",                            # tela de login pura
+    r"acesso\s+ao\s+sistema",              # tela de acesso ao sistema
+    r"portal\s+do\s+advogado",            # portal de serviços do advogado
+    r"portal\s+e.?processo",              # variações do portal e-processo
+    r"peticionamento\s+eletronico",        # tela de peticionamento
+)

@@ -1,15 +1,31 @@
 # core/scraper.py
 import feedparser
+import re
 import urllib.parse
 from datetime import datetime, timedelta
+import logging
 import time
 from config.settings import (
     TRIBUNAIS, FONTES_OFICIAIS,
-    TERMOS_ESPECIFICOS, TERMOS_FORTES_TI, TERMOS_BLOQUEADOS
+    TERMOS_ESPECIFICOS, TERMOS_FORTES_TI, TERMOS_BLOQUEADOS,
+    DIAS_JANELA, LOTE_DOMINIOS, LOTE_SIGLAS, LOTE_TERMOS, TITULO_MIN_CHARS,
+    TITULOS_PAGINAS_GENERICAS,
 )
-from core.filter import avaliar_noticia
-from core.database import verificar_status_noticia, salvar_auditoria
+from core.filter import avaliar_noticia, remover_acentos, normalizar_titulo_chave
+from core.database import verificar_status_noticia, verificar_titulo_chave, salvar_auditoria
 
+# ── Padrões para detecção de páginas de sistema (não-notícias) ────────────────
+# Fonte com aparência de domínio puro: sem espaços, contém pontos.
+# Ex: "prd.tjrj.pje.jus.br"  (domínio)  vs  "TJRJ Notícias"  (fonte legítima)
+_RE_FONTE_DOMINIO = re.compile(r'^[\w][\w.-]+\.[a-z]{2,6}(\.[a-z]{2})?$', re.IGNORECASE)
+
+# Títulos de telas de sistema — compilados a partir de settings.py
+_RE_TITULO_SISTEMA = re.compile(
+    "(" + "|".join(TITULOS_PAGINAS_GENERICAS) + ")",
+    re.IGNORECASE,
+)
+
+log = logging.getLogger(__name__)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Grupos temáticos extraídos de TERMOS_FORTES_TI (curtos, sem aspas duplas,
@@ -87,13 +103,32 @@ def construir_url_rss(query_final: str, data_limite: datetime) -> str:
 
     # Alerta se a URL estiver perto do limite de truncamento do Google (~2000 chars)
     if len(url) > 2000:
-        print(f"  ⚠️  URL longa ({len(url)} chars) — reduza o lote de termos ou domínios.")
+        log.warning("URL longa (%d chars) — reduza o lote de termos ou domínios.", len(url))
 
     return url
 
 
-def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias):
-    feed = feedparser.parse(url_rss)
+def _parse_feed_com_retry(url: str, tentativas: int = 3) -> feedparser.FeedParserDict:
+    """Faz o parse do feed RSS com backoff exponencial em caso de falha."""
+    for tentativa in range(1, tentativas + 1):
+        try:
+            feed = feedparser.parse(url)
+            # bozo=True com entries vazia indica falha real (ex: timeout, HTML em vez de XML)
+            if feed.get('bozo') and not feed.entries:
+                raise ValueError(f"Feed inválido: {feed.get('bozo_exception')}")
+            return feed
+        except Exception as exc:
+            if tentativa == tentativas:
+                log.warning("Feed falhou após %d tentativas: %s", tentativas, exc)
+                return feedparser.FeedParserDict(entries=[])
+            espera = 2 ** tentativa
+            log.debug("Tentativa %d/%d falhou (%s) — aguardando %ds...", tentativa, tentativas, exc, espera)
+            time.sleep(espera)
+    return feedparser.FeedParserDict(entries=[])
+
+
+def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=None, termo=""):
+    feed = _parse_feed_com_retry(url_rss)
     for entry in feed.entries:
 
         # ── Extração robusta da data de publicação ────────────────────
@@ -120,6 +155,31 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         resumo = entry.summary if hasattr(entry, 'summary') else ""
         fonte = entry.source.title if hasattr(entry, 'source') else "Google News"
 
+        # Descarta entradas cujo título é apenas o nome do domínio/fonte (RSS sem conteúdo real).
+        # Ex: "- tjrj.jus.br" ou "tjsp.jus.br" — menos de 15 chars úteis após remover a fonte.
+        titulo_util = titulo.replace(f"- {fonte}", "").replace(fonte, "").strip(" -–")
+        if len(titulo_util) < TITULO_MIN_CHARS:
+            links_ja_coletados.add(link)
+            continue
+
+        # ── Guarda contra páginas de sistema indexadas pelo Google ──────────
+        # Quando o Google News indexa uma tela do PJe (login, detalhe de processo,
+        # consulta processual…) em vez de uma notícia real, o campo "fonte" vem como
+        # um domínio puro (ex: "prd.tjrj.pje.jus.br") e o título é o nome genérico
+        # da tela.  Nenhum termo de bloqueio cobre esses casos, mas "pje" aparece
+        # no resumo (vindo do próprio domínio), fazendo a notícia ser aprovada como
+        # "Aprovado (Resumo)" — o que é um falso positivo.
+        # Condição de descarte: fonte parece domínio puro E título bate em padrão
+        # de tela de sistema.
+        titulo_normalizado = remover_acentos(titulo_util.lower())
+        if _RE_FONTE_DOMINIO.match(fonte) and _RE_TITULO_SISTEMA.search(titulo_normalizado):
+            log.debug(
+                "Página de sistema descartada: fonte='%s' | título='%s'",
+                fonte, titulo_util[:80],
+            )
+            links_ja_coletados.add(link)
+            continue
+
         noticia_bruta = {
             'titulo': titulo,
             'resumo': resumo,
@@ -128,17 +188,32 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
             'fonte': fonte,
         }
 
-        # Se já existe no banco, arquiva como repetido e ignora
+        # Coleta bruta para Google Sheets (antes do filtro e banco)
+        if brutas is not None:
+            brutas.append({**noticia_bruta, 'origem': 'RSS', 'termo_buscado': termo})
+
+        # Chave normalizada para deduplicação por conteúdo (cross-run)
+        titulo_chave = normalizar_titulo_chave(titulo)
+
+        # Se já existe no banco pelo link exato, arquiva como repetido e ignora
         if verificar_status_noticia(link):
-            salvar_auditoria(noticia_bruta, 'repetido', 'Já Existente', 'N/A', 'N/A')
+            salvar_auditoria(noticia_bruta, 'repetido', 'Já Existente', 'N/A', 'N/A', titulo_chave)
+            links_ja_coletados.add(link)
+            continue
+
+        # Se o mesmo conteúdo foi aprovado recentemente via URL diferente, bloqueia
+        # (ex: RSS capturou com URL do Google; Scraper Direto capturou com URL do tribunal)
+        if titulo_chave and verificar_titulo_chave(titulo_chave, janela_dias=DIAS_JANELA + 1):
+            log.debug("Dedup cross-run por título: '%s'", titulo[:80])
+            salvar_auditoria(noticia_bruta, 'repetido', 'Duplicata de Título (Cross-Run)', 'N/A', 'N/A', titulo_chave)
             links_ja_coletados.add(link)
             continue
 
         # Desempacota as 4 variáveis do Filtro Profundo
         status, motivo, palavra_extraida, termo_base = avaliar_noticia(titulo, resumo)
 
-        # Salva auditoria completa no banco
-        salvar_auditoria(noticia_bruta, status, motivo, palavra_extraida, termo_base)
+        # Salva auditoria completa no banco (incluindo titulo_chave)
+        salvar_auditoria(noticia_bruta, status, motivo, palavra_extraida, termo_base, titulo_chave)
 
         if status == 'novo':
             noticia_bruta['palavra_extraida'] = palavra_extraida
@@ -148,36 +223,31 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
         links_ja_coletados.add(link)
 
 
-def buscar_noticias_semanais():
-    todas_noticias = []
-    links_ja_coletados = set()
-    data_limite = datetime.now() - timedelta(days=2)
+def buscar_noticias_semanais(brutas: list | None = None) -> list[dict]:
+    todas_noticias: list[dict] = []
+    links_ja_coletados: set[str] = set()
+    data_limite = datetime.now() - timedelta(days=DIAS_JANELA)
 
     lista_dominios = extrair_dominios_oficiais()
 
-    # Lotes de domínios — mantemos 20 por lote como estava
-    tamanho_lote_dominios = 20
     lotes_dominios = [
-        lista_dominios[i:i + tamanho_lote_dominios]
-        for i in range(0, len(lista_dominios), tamanho_lote_dominios)
+        lista_dominios[i:i + LOTE_DOMINIOS]
+        for i in range(0, len(lista_dominios), LOTE_DOMINIOS)
     ]
 
-    # Lotes de siglas — 10 por lote como estava
     siglas = [t["acronym"] for t in TRIBUNAIS]
-    tamanho_lote_siglas = 10
     lotes_siglas = [
-        siglas[i:i + tamanho_lote_siglas]
-        for i in range(0, len(siglas), tamanho_lote_siglas)
+        siglas[i:i + LOTE_SIGLAS]
+        for i in range(0, len(siglas), LOTE_SIGLAS)
     ]
 
     # ── FASE 1: Grupos temáticos × siglas × domínios ─────────────────
     # Cada grupo é uma query pequena e focada, evitando truncamento.
-    print(f"Iniciando Fase 1: {len(GRUPOS_TERMOS_FORTES)} grupos temáticos "
-          f"x {len(lotes_siglas)} lotes de siglas "
-          f"x {len(lotes_dominios)} lotes de domínios...")
+    log.info("Iniciando Fase 1: %d grupos temáticos x %d lotes de siglas x %d lotes de domínios...",
+             len(GRUPOS_TERMOS_FORTES), len(lotes_siglas), len(lotes_dominios))
 
     for nome_grupo, termos in GRUPOS_TERMOS_FORTES.items():
-        print(f"  -> Grupo: {nome_grupo}")
+        log.info("  -> Grupo: %s", nome_grupo)
         query_termos = "(" + " OR ".join(termos) + ")"
 
         for lote_siglas in lotes_siglas:
@@ -187,17 +257,16 @@ def buscar_noticias_semanais():
                 filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
                 query_final = f"{query_termos} AND {query_tribunais} AND {filtro_dominio}"
                 url_rss = construir_url_rss(query_final, data_limite)
-                extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+                extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=nome_grupo)
                 time.sleep(1.5)
 
     # ── FASE 2: TERMOS_ESPECIFICOS (frases exatas) × domínios ────────
     # Não combinamos com siglas aqui — as frases já são específicas o suficiente.
-    print("Iniciando Fase 2: Frases exatas de TERMOS_ESPECIFICOS x domínios...")
+    log.info("Iniciando Fase 2: Frases exatas de TERMOS_ESPECIFICOS x domínios...")
 
-    tamanho_lote_termos = 5  # Reduzido de 6 para 5: frases longas pesam mais na URL
     lotes_termos = [
-        TERMOS_ESPECIFICOS[i:i + tamanho_lote_termos]
-        for i in range(0, len(TERMOS_ESPECIFICOS), tamanho_lote_termos)
+        TERMOS_ESPECIFICOS[i:i + LOTE_TERMOS]
+        for i in range(0, len(TERMOS_ESPECIFICOS), LOTE_TERMOS)
     ]
 
     for lote_termos in lotes_termos:
@@ -207,18 +276,18 @@ def buscar_noticias_semanais():
             filtro_dominio = "(" + " OR ".join(f"site:{d}" for d in lote_dom) + ")"
             query_final = f"{query_frases} AND {filtro_dominio}"
             url_rss = construir_url_rss(query_final, data_limite)
-            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            termo_repr = " | ".join(t.strip('"') for t in lote_termos[:2])
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=f"especifico: {termo_repr}")
             time.sleep(1.5)
 
     # ── FASE 3: TERMOS_FORTES_TI sem filtro de domínio ───────────────
     # Busca aberta na web (sem site:), útil para pegar noticias em portais
     # especializados que nao estao na lista de dominios oficiais.
-    print("Iniciando Fase 3: TERMOS_FORTES_TI sem filtro de dominio (busca aberta)...")
+    log.info("Iniciando Fase 3: TERMOS_FORTES_TI sem filtro de domínio (busca aberta)...")
 
-    tamanho_lote_fortes = 5
     lotes_fortes = [
-        TERMOS_FORTES_TI[i:i + tamanho_lote_fortes]
-        for i in range(0, len(TERMOS_FORTES_TI), tamanho_lote_fortes)
+        TERMOS_FORTES_TI[i:i + LOTE_TERMOS]
+        for i in range(0, len(TERMOS_FORTES_TI), LOTE_TERMOS)
     ]
 
     for lote_fortes in lotes_fortes:
@@ -229,9 +298,10 @@ def buscar_noticias_semanais():
             query_tribunais = "(" + " OR ".join(f'"{s}"' for s in lote_siglas) + ")"
             query_final = f"{query_fortes} AND {query_tribunais}"
             url_rss = construir_url_rss(query_final, data_limite)
-            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias)
+            termo_repr = " | ".join(lote_fortes[:2])
+            extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_noticias, brutas=brutas, termo=f"forte: {termo_repr}")
             time.sleep(1.5)
 
     todas_noticias.sort(key=lambda x: x['data_obj'], reverse=True)
-    print(f"Coleta finalizada. {len(todas_noticias)} noticias novas encontradas.")
+    log.info("Coleta RSS finalizada. %d notícias novas encontradas.", len(todas_noticias))
     return todas_noticias
