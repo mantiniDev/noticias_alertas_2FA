@@ -89,9 +89,16 @@ def _limpar_data_titulo(titulo: str) -> str:
 
 
 # Tags HTML que representam navegação/acessibilidade — jamais contêm notícias reais.
-_NAV_TAGS = "nav, header, footer, .menu, .navbar, .breadcrumb, .lfr-nav, " \
-            ".taglib-navigation, aside, .accessibility, .vlibras, " \
-            ".skip-nav, #accessibility-tools"
+# ATENÇÃO: NÃO inclui <aside> genérico pois portais Liferay usam
+# <aside class="portlet-column"> para hospedar os portlets de notícias.
+# Apenas asides com classes específicas de acessibilidade/navegação são removidos.
+_NAV_TAGS = (
+    "nav, header, footer, .menu, .navbar, .breadcrumb, .lfr-nav, "
+    ".taglib-navigation, "
+    "aside.accessibility, aside.vlibras, aside[class*='skip'], "
+    "aside[class*='sidebar'], aside[aria-label*='navigation'], "
+    ".accessibility, .vlibras, .skip-nav, #accessibility-tools"
+)
 
 HEADERS = {
     "User-Agent": (
@@ -874,6 +881,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://portal.tjpe.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -1028,6 +1036,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://portal.trf2.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -1042,6 +1051,7 @@ FONTES: list[dict] = [
                 "nome": "TRF3 - Últimas Notícias",
                 "url": "https://www.trf3.jus.br/noticias/",
                 "parser": "generic_news",
+                "force_playwright": True,
                 "base_url": "https://web.trf3.jus.br",
                 "tipo": "Notícias",
             },
@@ -1352,6 +1362,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.trt9.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -1365,7 +1376,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT10 - ASCOM Notícias",
-                "url": "https://www.trt10.jus.br/ascom/noticias",
+                "url": "https://www.trt10.jus.br/noticias",
                 "parser": "generic_news",
                 "base_url": "https://www.trt10.jus.br",
                 "tipo": "Notícias",
@@ -1503,7 +1514,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT17 - Notícias",
-                "url": "https://www.trt17.jus.br/noticias/",
+                "url": "https://www.trt17.jus.br/comunicacao",
                 "parser": "generic_news",
                 "base_url": "https://www.trt17.jus.br",
                 "tipo": "Notícias",
@@ -1589,7 +1600,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT21 - Notícias",
-                "url": "https://www.trt21.jus.br/comunicacao/noticias/",
+                "url": "https://www.trt21.jus.br/",
                 "parser": "generic_news",
                 "base_url": "https://www.trt21.jus.br",
                 "tipo": "Notícias",
