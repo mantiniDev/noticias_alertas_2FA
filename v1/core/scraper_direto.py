@@ -59,6 +59,15 @@ _RE_PURE_DATE = re.compile(
 # Muitos portais incluem a data no texto do link: "28/05/2026 - TJSP participa..."
 # Esse padrão remove apenas o prefixo; _RE_PURE_DATE continua rejeitando títulos
 # que são SOMENTE datas (sem texto adicional).
+# Padrões de ruído para o S5 (fallback): rejeita links de cookie/privacidade/
+# acessibilidade que aparecem quando o soup inteiro é usado como área.
+_RE_RUIDO_S5 = re.compile(
+    r'\bcookies?\b|privacidade|termos de uso|termos e condi|politica de|'
+    r'vlibras|alto contraste|mapa do site|fale conosco|usamos cookies|'
+    r'utiliza(mos)? cookies|aceitar cookies|acessibilidade',
+    re.IGNORECASE,
+)
+
 _RE_TITULO_DATA_PREFIX = re.compile(
     # "28/05/2026 -" / "27/05/2026 18h00" / "27/05/2026 - 13:32"
     r'^\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4}'
@@ -536,8 +545,8 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjpi.jus.br",
                 "tipo": "Notícias",
-                "force_playwright": True,
-                "wait_selector": "article, .portlet-content, h3 a, .noticia-item",
+                "skip": True,
+                "skip_reason": "timeout Playwright (25s) — site inacessível externamente",
             },
         ],
     },
@@ -2406,13 +2415,25 @@ def parse_generic_news(soup, acronym, base_url):
     for tag in soup.select(_NAV_TAGS):
         tag.decompose()
 
-    # Área de conteúdo principal — tenta do mais específico ao mais genérico
-    area = soup.select_one(
-        "main, #main, .main-content, #content, #main-content, "
-        ".content-area, .portlet-body, .journal-content-article, "
-        ".portlet-content, .lfr-portlet-body, .asset-publisher-content, "
-        "#portal-content, .conteudo, #conteudo, .page-content"
-    ) or soup
+    # Área de conteúdo principal — itera em ordem de prioridade e usa a
+    # PRIMEIRA que tiver conteúdo real (>= 2 KB).
+    # Não usa select_one com seletor combinado porque CSS document-order pode
+    # escolher um container menor que aparece antes no HTML (ex.: div.page-content
+    # antes de <main> no TJAP, ou #main-content vazio/React no CNMP e TRT23).
+    _AREA_PRIORITY = [
+        "main", "#main", ".main-content", "#content", "#main-content",
+        ".content-area", ".portlet-body", ".journal-content-article",
+        ".portlet-content", ".lfr-portlet-body", ".asset-publisher-content",
+        "#portal-content", ".conteudo", "#conteudo", ".page-content",
+    ]
+    area = None
+    for _sel in _AREA_PRIORITY:
+        _cand = soup.select_one(_sel)
+        if _cand and len(str(_cand).strip()) >= 2000:
+            area = _cand
+            break
+    if area is None:
+        area = soup
 
     # ── Estratégia 1: <article> semântico ────────────────────────────
     items = area.select("article")
@@ -2455,17 +2476,27 @@ def parse_generic_news(soup, acronym, base_url):
             parent = a.parent
             resumo = _txt(parent) if parent and parent.name not in ("html", "body", "nav") else ""
         else:
-            a      = item.find("a")
-            titulo = _limpar_data_titulo(
-                _txt(a) if a else _txt(item.find(["h2", "h3", "h4"]) or item)
-            )
-            link   = _abs(a.get("href", "") if a else "", base_url)
+            a     = item.find("a")
+            h_tag = item.find(["h2", "h3", "h4"])
+            titulo_a = _limpar_data_titulo(_txt(a))     if a     else ""
+            titulo_h = _limpar_data_titulo(_txt(h_tag)) if h_tag else ""
+            # Prefere heading se for mais descritivo que o link
+            # (cobre <article><a><img/></a><h2>Título da notícia</h2>)
+            if len(titulo_h) >= 15:
+                titulo = titulo_h
+                a_link = (h_tag.find("a") if h_tag else None) or a
+            else:
+                titulo = titulo_a
+                a_link = a
+            link   = _abs(a_link.get("href", "") if a_link else "", base_url)
             resumo_tag = item.find(["p", "span"], class_=lambda c: c and any(
                 k in c.lower() for k in ("resumo", "desc", "summary", "intro", "lead", "abstract")
             )) if hasattr(item, "find") else None
             resumo = _txt(resumo_tag) if resumo_tag else ""
 
-        if titulo and len(titulo) > 15 and not _RE_PURE_DATE.match(titulo.strip()):
+        if (titulo and len(titulo) > 15
+                and not _RE_PURE_DATE.match(titulo.strip())
+                and not _RE_RUIDO_S5.search(titulo)):
             results.append({"titulo": titulo, "resumo": resumo, "link": link})
 
     # ── Estratégia 4b: headings sem link direto → busca link no pai ──
@@ -2494,6 +2525,8 @@ def parse_generic_news(soup, acronym, base_url):
                 break
 
     # ── Estratégia 5: qualquer link substancial na área ───────────────
+    # Filtro extra _RE_RUIDO_S5: rejeita cookie banners, avisos de privacidade
+    # e links de acessibilidade que surgem quando soup inteiro é usado como área.
     if not results:
         for a in area.select("a[href]"):
             if len(results) >= MAX_ITEMS:
@@ -2502,7 +2535,8 @@ def parse_generic_news(soup, acronym, base_url):
             titulo = _limpar_data_titulo(_txt(a))
             if (len(titulo) >= 25
                     and not href.startswith("#")
-                    and "javascript" not in href):
+                    and "javascript" not in href
+                    and not _RE_RUIDO_S5.search(titulo)):
                 results.append({
                     "titulo": titulo,
                     "resumo": "",
