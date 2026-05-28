@@ -101,11 +101,12 @@ def diagnosticar() -> None:
 
         prefix = f"  [{i:>3}/{total}] [{acronym}]"
 
-        # Fontes que requerem VPN
-        if fonte.get("vpn_required"):
-            print(f"{prefix} ⏭️  PULADO (vpn_required)")
+        # Fontes que requerem VPN ou estão marcadas como skip
+        if fonte.get("vpn_required") or fonte.get("skip"):
+            motivo = "vpn_required" if fonte.get("vpn_required") else fonte.get("skip_reason", "skip=True")
+            print(f"{prefix} ⏭️  PULADO ({motivo[:60]})")
             stats["pulado"] += 1
-            linhas_csv.append(_linha(fonte, "PULADO", 0, 0, "vpn_required", ""))
+            linhas_csv.append(_linha(fonte, "PULADO", 0, 0, motivo, ""))
             continue
 
         # Fetch

@@ -55,6 +55,39 @@ _RE_PURE_DATE = re.compile(
     re.IGNORECASE,
 )
 
+# Prefixo de data em títulos de notícias de tribunais.
+# Muitos portais incluem a data no texto do link: "28/05/2026 - TJSP participa..."
+# Esse padrão remove apenas o prefixo; _RE_PURE_DATE continua rejeitando títulos
+# que são SOMENTE datas (sem texto adicional).
+_RE_TITULO_DATA_PREFIX = re.compile(
+    # "28/05/2026 -" / "27/05/2026 18h00" / "27/05/2026 - 13:32"
+    r'^\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4}'
+    r'(?:[\s\-–—]+(?:\d{1,2}[hH]\d{0,2}|\d{1,2}:\d{2}))?'
+    r'[\s\-–—]*'
+    r'|^\d{1,2}\s+de\s+\w+\s+de\s+\d{4}[\s\-–—:]*'   # "27 de maio de 2026 -"
+    r'|^\d{1,2}\s+\w{3}[\s\.\-–—:]*',                   # "26 mai -"
+    re.IGNORECASE,
+)
+
+
+def _limpar_data_titulo(titulo: str) -> str:
+    """Remove prefixo de data do início de um título de notícia.
+
+    Exemplos:
+      "28/05/2026 - TJSP participa..."  → "TJSP participa..."
+      "27/05/2026 18h00 TJMG…"         → "TJMG…"
+      "27 de maio de 2026 TJAC inova…" → "TJAC inova…"
+      "26 mai TRT-8 Presente…"         → "TRT-8 Presente…"
+
+    Mantém o título original se o resultado limpo ficar com menos de 10 chars
+    (evita apagar título que seja APENAS uma data — esse caso vai para _RE_PURE_DATE).
+    """
+    if not titulo:
+        return ""
+    clean = _RE_TITULO_DATA_PREFIX.sub("", titulo).strip()
+    return clean if len(clean) >= 10 else titulo
+
+
 # Tags HTML que representam navegação/acessibilidade — jamais contêm notícias reais.
 _NAV_TAGS = "nav, header, footer, .menu, .navbar, .breadcrumb, .lfr-nav, " \
             ".taglib-navigation, aside, .accessibility, .vlibras, " \
@@ -174,6 +207,8 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.cnj.jus.br",
                 "tipo": "Normativos",
+                "skip": True,
+                "skip_reason": "página de busca/formulário — não é listagem estática",
             },
         ],
     },
@@ -441,6 +476,8 @@ FONTES: list[dict] = [
                 "url": "https://www.tjpr.jus.br/legislacao-atos-normativos",
                 "parser": "generic_news",
                 "base_url": "https://www.tjpr.jus.br",
+                "skip": True,
+                "skip_reason": "página de busca/formulário — não é listagem estática",
                 "tipo": "Normativos",
             },
         ],
@@ -583,6 +620,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjal.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -853,7 +891,8 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjrn.jus.br",
                 "tipo": "Notícias",
-                "skip_playwright": True,  # site bloqueia IPs de CI via Playwright
+                "skip": True,
+                "skip_reason": "geo-bloqueio — inacessível fora da rede interna do tribunal",
             },
         ],
     },
@@ -984,10 +1023,10 @@ FONTES: list[dict] = [
         },
         "noticias": [
             {
-                "nome": "TRF2 - Portal",
-                "url": "https://www.trf2.jus.br/",
+                "nome": "TRF2 - Notícias",
+                "url": "https://portal.trf2.jus.br/noticias/",
                 "parser": "generic_news",
-                "base_url": "https://www.trf2.jus.br",
+                "base_url": "https://portal.trf2.jus.br",
                 "tipo": "Notícias",
             },
         ],
@@ -1001,7 +1040,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRF3 - Últimas Notícias",
-                "url": "https://web.trf3.jus.br/noticias/Noticiar/ExibirUltimasNoticias",
+                "url": "https://www.trf3.jus.br/noticias/",
                 "parser": "generic_news",
                 "base_url": "https://web.trf3.jus.br",
                 "tipo": "Notícias",
@@ -1036,6 +1075,8 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.trf4.jus.br",
                 "tipo": "Normativos",
+                "skip": True,
+                "skip_reason": "formulário JS — exige interação para listar resultados",
             },
         ],
     },
@@ -1324,7 +1365,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT10 - ASCOM Notícias",
-                "url": "https://www.trt10.jus.br/ascom/",
+                "url": "https://www.trt10.jus.br/ascom/noticias",
                 "parser": "generic_news",
                 "base_url": "https://www.trt10.jus.br",
                 "tipo": "Notícias",
@@ -1461,8 +1502,8 @@ FONTES: list[dict] = [
         },
         "noticias": [
             {
-                "nome": "TRT17 - Comunicação",
-                "url": "https://www.trt17.jus.br/web/comunicacao/w/",
+                "nome": "TRT17 - Notícias",
+                "url": "https://www.trt17.jus.br/noticias/",
                 "parser": "generic_news",
                 "base_url": "https://www.trt17.jus.br",
                 "tipo": "Notícias",
@@ -1548,7 +1589,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT21 - Notícias",
-                "url": "https://www.trt21.jus.br/noticias/noticia/",
+                "url": "https://www.trt21.jus.br/comunicacao/noticias/",
                 "parser": "generic_news",
                 "base_url": "https://www.trt21.jus.br",
                 "tipo": "Notícias",
@@ -2354,10 +2395,16 @@ def parse_generic_news(soup, acronym, base_url):
     # ── Estratégia 2: classes de lista comuns ─────────────────────────
     if not items:
         items = area.select(
-            ".views-row, .item-list li, .noticia-item, "
-            ".asset-entry, .asset-abstract, "
+            # Drupal / views
+            ".views-row, .item-list li, "
+            # CMS genérico
+            ".noticia-item, .asset-entry, .asset-abstract, "
             ".news-item, .news-list li, "
             ".lista-noticias li, .listing li, "
+            # WordPress / Elementor / Gutenberg
+            ".entry-title, .post-title, h2.entry-title, h3.entry-title, "
+            ".ct-post-title, .jeg_post_title, .wp-block-post-title, "
+            # Padrões por substring de classe
             "[class*='noticia']:not(nav), [class*='news-item']"
         )
 
@@ -2370,39 +2417,73 @@ def parse_generic_news(soup, acronym, base_url):
             ".search-results .portlet-title-text"
         )
 
-    # ── Estratégia 4: headings com link ──────────────────────────────
+    # ── Estratégia 4: headings com link direto ───────────────────────
     if not items:
         items = area.select("h2 a, h3 a, h4 a, .titulo a, .title a, .headline a")
-
-    # ── Estratégia 5: qualquer link substancial na área ───────────────
-    if not items:
-        items = [
-            a for a in area.select("a[href]")
-            if len(_txt(a)) >= 25
-            and not a.get("href", "").startswith("#")
-            and "javascript" not in a.get("href", "")
-        ]
 
     results = []
     for item in items[:MAX_ITEMS]:
         if item.name == "a":
-            a     = item
-            titulo = _txt(a)
+            a      = item
+            titulo = _limpar_data_titulo(_txt(a))
             link   = _abs(a.get("href", ""), base_url)
             parent = a.parent
             resumo = _txt(parent) if parent and parent.name not in ("html", "body", "nav") else ""
         else:
-            a     = item.find("a")
-            titulo = _txt(a) if a else _txt(item.find(["h2", "h3", "h4"]) or item)
+            a      = item.find("a")
+            titulo = _limpar_data_titulo(
+                _txt(a) if a else _txt(item.find(["h2", "h3", "h4"]) or item)
+            )
             link   = _abs(a.get("href", "") if a else "", base_url)
             resumo_tag = item.find(["p", "span"], class_=lambda c: c and any(
                 k in c.lower() for k in ("resumo", "desc", "summary", "intro", "lead", "abstract")
             )) if hasattr(item, "find") else None
             resumo = _txt(resumo_tag) if resumo_tag else ""
 
-        # Mínimo 15 chars, não pode ser só data, não pode ser link de navegação
         if titulo and len(titulo) > 15 and not _RE_PURE_DATE.match(titulo.strip()):
             results.append({"titulo": titulo, "resumo": resumo, "link": link})
+
+    # ── Estratégia 4b: headings sem link direto → busca link no pai ──
+    # Cobre o padrão "<h3>Título</h3><a href='...'>Saiba mais</a>" muito comum
+    # em portais de tribunais onde o texto do link é curto (< 25 chars).
+    if not results:
+        for h in area.select("h2, h3, h4"):
+            titulo_h = _limpar_data_titulo(_txt(h))
+            if len(titulo_h) < 15 or _RE_PURE_DATE.match(titulo_h.strip()):
+                continue
+            # Busca o link mais próximo: dentro do heading, no pai, ou no irmão seguinte
+            a = (h.find("a")
+                 or (h.parent.find("a") if h.parent else None)
+                 or h.find_next_sibling("a"))
+            if not a:
+                continue
+            href = a.get("href", "")
+            if not href or href.startswith(("#", "javascript")):
+                continue
+            results.append({
+                "titulo": titulo_h,
+                "resumo": "",
+                "link":   _abs(href, base_url),
+            })
+            if len(results) >= MAX_ITEMS:
+                break
+
+    # ── Estratégia 5: qualquer link substancial na área ───────────────
+    if not results:
+        for a in area.select("a[href]"):
+            if len(results) >= MAX_ITEMS:
+                break
+            href   = a.get("href", "")
+            titulo = _limpar_data_titulo(_txt(a))
+            if (len(titulo) >= 25
+                    and not href.startswith("#")
+                    and "javascript" not in href):
+                results.append({
+                    "titulo": titulo,
+                    "resumo": "",
+                    "link":   _abs(href, base_url),
+                })
+
     return results
 
 
@@ -2983,9 +3064,14 @@ def buscar_noticias_fontes() -> dict[str, list]:
             label = _GRUPOS_LABEL.get(grupo, grupo)
             log.info("\n  ── %s ──", label)
 
-        # Pula fontes que exigem VPN/rede interna
+        # Pula fontes que exigem VPN/rede interna ou estão marcadas como skip
         if fonte.get("vpn_required"):
             log.info("  ⚠️  [%s] Requer VPN/rede interna — ignorado.", acronym)
+            total_puladas += 1
+            continue
+        if fonte.get("skip"):
+            motivo = fonte.get("skip_reason", "marcado para pular")
+            log.info("  ⏭️  [%s] Ignorado: %s", acronym, motivo)
             total_puladas += 1
             continue
 
