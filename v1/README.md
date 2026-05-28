@@ -1,164 +1,281 @@
 # 🏛️ MAST — Monitoramento Automatizado de Sistemas e Tribunais
 
-[![Python Version](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
-[![GitHub Actions](https://img.shields.io/badge/Build-Automated-success.svg)](https://github.com/mantiniDev/noticias_alertas_2FA/actions)
+[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/)
+[![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-success.svg)](https://github.com/features/actions)
+[![Testes](https://img.shields.io/badge/testes-1398%20passando-brightgreen.svg)](#-testes)
+[![Fontes Fase 3](https://img.shields.io/badge/fontes-104%20tribunais-orange.svg)](#-fase-3--not%C3%ADcias-expandidas)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Um robô de **OSINT (Open Source Intelligence)** e **Threat Intelligence** construído em Python, focado em monitorar, filtrar e alertar sobre a disponibilidade, segurança e atualizações dos sistemas do Poder Judiciário Brasileiro.
+> Robô de **inteligência de fontes abertas (OSINT)** desenvolvido em Python para monitorar, filtrar e alertar sobre indisponibilidades de sistemas, ciberataques, novas portarias e notícias de TI de **mais de 100 fontes do Poder Judiciário Brasileiro**.
 
-O **MAST** vigia continuamente a internet à procura de incidentes de TI, indisponibilidades de sistemas (PJe, eproc, e-SAJ, Projudi), ciberataques, implementação de MFA/2FA e novas portarias em mais de **60 tribunais brasileiros** (STF, STJ, TJs, TRFs, TRTs e TREs).
+O MAST executa diariamente via GitHub Actions (10h UTC), consolida notícias de três pipelines independentes e envia um **e-mail HTML categorizado por grupo de tribunal**, com relatórios **CSV** e **PDF** anexados.
+
+---
+
+## 🗂️ Índice
+
+- [Como Funciona](#-como-funciona)
+- [Estrutura do Projeto](#-estrutura-do-projeto)
+- [Fluxo de Execução](#-fluxo-de-execução)
+- [Grupos e Fontes Monitoradas](#-grupos-e-fontes-monitoradas)
+- [Tecnologias](#-tecnologias)
+- [Configuração e Deploy](#-configuração-e-deploy)
+- [Execução Local](#-execução-local)
+- [Testes](#-testes)
+- [Scripts de Diagnóstico](#-scripts-de-diagnóstico)
 
 ---
 
 ## ✨ Como Funciona
 
-O MAST opera em **cinco fases sequenciais** a cada execução:
+O MAST opera em **três fases sequenciais** a cada execução:
 
-### Fase 1 — Mapeamento Dinâmico de Domínios
-Em vez de uma busca genérica, o script lê sua própria base de dados e extrai a URL raiz de cada um dos **60+ tribunais e portais cadastrados** (STF, STJ, TJs, TRFs, TRTs, TREs), gerando filtros de busca dinâmicos e sempre atualizados.
+### Fase 1 — Scraper RSS (Google News)
+Busca notícias dos últimos 2 dias cruzando siglas de tribunais com palavras-chave de TI/SRE (`PJe`, `indisponível`, `MFA`, `ciberataque`, `instabilidade`, `2FA`, etc.) via Google News RSS. Resultado: lista de notícias filtradas pelo motor de palavras-chave.
 
-### Fase 2 — Varredura de Rede Larga
-Cruza a sigla de cada tribunal com uma lista de palavras-chave de SRE e Segurança (`PJe`, `instabilidade`, `MFA`, `ciberataque`, `nuvem`, etc.), puxando qualquer notícia oficial dos **últimos 2 dias** via Google News RSS. As queries são agrupadas em lotes para evitar bloqueios por rate limit (Erro 400).
+### Fase 2 — Scraper Direto (Portais Oficiais)
+Acessa diretamente as **páginas de indisponibilidade** de 61 fontes do Judiciário (STF, STJ, TJs, TRFs, TRTs, TREs) para capturar alertas de sistemas que ainda não chegaram ao Google News. Suporta páginas estáticas (via `requests`) e dinâmicas (via **Playwright/Chromium**).
 
-### Fase 3 — Busca de Precisão (Frases Exatas)
-Realiza buscas superespecíficas com frases exatas (ex.: `"SRE (Site Reliability Engineering)"`, `"Desafio Captcha"`, `"WAF"`) para capturar comunicados técnicos que possam escapar da rede larga da Fase 2.
+### Fase 3 — Notícias Expandidas (104 Fontes)
+Varre diretamente as **seções de notícias e normativos** de 104 fontes organizadas por grupo de tribunal, com parser genérico multi-CMS capaz de lidar com Liferay, Drupal, WordPress, portais JSF e CMSs customizados. Resultado: notícias categorizadas prontas para o e-mail.
 
-### Fase 4 — Malha Fina (Motor de Inspeção)
-Para cada notícia encontrada, título e resumo passam por um "Raio-X" em três etapas:
-
-1. **Normalização Unicode** — remove acentos e converte para lowercase, uniformizando variações ortográficas (`manutencao` == `manutenção`).
-2. **Filtro de Bloqueio via Regex** — descarta termos de RH/administrativo como `estágio`, `eleição` e `orçamento`, exceto quando o título é explicitamente sobre TI.
-3. **Validação com Isolamento de Palavra** — usa `\b` (word boundary) para impedir que siglas de TI validem palavras maiores (ex.: `SSO` não valida `processo`). Plurais são aceitos automaticamente via regex `(s|es)?`.
-
-### Fase Final — Enriquecimento e Notificação
-Unifica os dados validados, gera um **relatório HTML responsivo** e um **anexo CSV** com os últimos 100 registros, enviados via SMTP diretamente ao canal do Slack. Credenciais gerenciadas via GitHub Secrets.
+### Consolidação e Notificação
+As três fases são unificadas em um único relatório por categoria de tribunal. Itens de **Indisponibilidade** recebem destaque visual (borda vermelha) no e-mail. O relatório completo é enviado com anexos **CSV** e **PDF**, e os dados brutos são exportados para **Google Sheets**.
 
 ---
 
 ## 📁 Estrutura do Projeto
 
 ```
-noticias_alertas_2FA/
-│
-├── .github/
-│   └── workflows/          # Pipeline CI/CD com GitHub Actions (cron job diário)
+v1/
+├── main.py                      # Orquestrador principal (Fases 1, 2 e 3)
 │
 ├── config/
-│   └── settings.py         # Constantes, URLs dos tribunais e listas de palavras-chave
+│   └── settings.py              # Constantes globais, palavras-chave, URLs, limites
 │
 ├── core/
-│   ├── scraper.py          # Extração de domínios, busca no Google News e RSS
-│   ├── filter.py           # Lógica de malha fina (Regex, normalização de texto)
-│   ├── notifier.py         # Geração de relatórios HTML e integração SMTP
-│   ├── database.py         # Inicialização do SQLite e queries de leitura/escrita
-│   └── csv_generator.py    # Geração do relatório CSV anexado ao e-mail
+│   ├── scraper.py               # Fase 1 — RSS/Google News
+│   ├── scraper_direto.py        # Fases 2 e 3 — scraper direto + 104 parsers
+│   ├── filter.py                # Motor de filtro: regex, normalização, deduplicação
+│   ├── notifier.py              # Geração de HTML/texto e envio de e-mail SMTP
+│   ├── database.py              # SQLite — persistência e controle de duplicatas
+│   ├── csv_generator.py         # Geração do relatório CSV
+│   ├── pdf_generator.py         # Geração do relatório PDF
+│   └── sheets_writer.py         # Exportação para Google Sheets via webhook
 │
-├── main.py                 # Orquestrador principal da aplicação
-└── mast_dados.db           # Banco de dados SQLite (gerado automaticamente)
+├── tests/
+│   ├── test_scraper_direto.py   # 1300+ testes para parsers e scraper direto
+│   ├── test_filter.py           # Testes do motor de filtragem
+│   ├── test_database.py         # Testes de persistência
+│   └── test_csv_generator.py    # Testes de geração de relatório
+│
+├── diagnostico_fase3.py         # Script de diagnóstico das 104 fontes da Fase 3
+├── inspecionar_zeros.py         # Script de inspeção de fontes com ZERO itens
+│
+└── .github/
+    └── workflows/
+        └── main.yml             # Pipeline CI/CD — cron diário 10h UTC
 ```
 
 ---
 
-## 🔄 Fluxo de Execução (`main.py`)
+## 🔄 Fluxo de Execução
 
 ```
-1. init_db()                    → Inicializa os bancos de dados (SQLite)
-2. buscar_noticias_semanais()   → Scraper busca, filtra e arquiva notícias; retorna apenas as "novas"
-3. buscar_dados_para_csv()      → Lê os últimos 100 registros novos do banco
-4. gerar_csv_relatorio()        → Gera o arquivo CSV de relatório
-5. gerar_corpos_email()         → Monta o corpo do e-mail em texto e HTML
-6. enviar_email()               → Envia o alerta com o CSV anexado
+main.py
+  │
+  ├── 1. init_db()                      → Cria/verifica tabelas no SQLite
+  │
+  ├── 2. buscar_noticias_semanais()     → Fase 1: RSS + filtro de palavras-chave
+  │
+  ├── 3. buscar_noticias_direto()       → Fase 2: scraper direto de indisponibilidades
+  │
+  ├── 4. buscar_noticias_fontes()       → Fase 3: 104 fontes de notícias por categoria
+  │
+  ├── 5. Deduplicação (Fases 1+2)       → por link e por título normalizado
+  │
+  ├── 6. Consolidação por grupo         → {grupo: [itens]} com todas as fases
+  │
+  ├── 7. gerar_csv_relatorio()          → CSV com últimos N registros do banco
+  ├── 8. gerar_pdf_relatorio()          → PDF com mesma base
+  │
+  ├── 9. gerar_corpos_email()           → HTML + texto categorizado por tribunal
+  ├── 10. enviar_email()                → SMTP com CSV e PDF anexados
+  │
+  └── 11. enviar_para_sheets()          → Dados brutos para Google Sheets
 ```
 
 ---
 
-## 🛠️ Tecnologias Utilizadas
+## 🏛️ Grupos e Fontes Monitoradas
 
-| Biblioteca | Uso |
-|---|---|
-| `feedparser` | Leitura, extração e parsing de RSS/Atom |
-| `urllib` / `urllib3` | Codificação de queries de busca |
-| `re` / `unicodedata` | Expressões regulares e normalização de texto (remoção de acentos) |
-| `sqlite3` | Persistência local de notícias e controle de duplicatas |
-| `smtplib` / `email.mime` | Geração de relatórios HTML responsivos e envio de e-mail |
-| `csv` | Geração de relatório tabular para anexo |
-| **GitHub Actions** | Automação CI/CD, cron jobs e ambiente serverless gratuito |
+| Grupo | Descrição | Fontes (Fase 3) |
+|-------|-----------|-----------------|
+| **Sistemas-CNJ** | PJe, CNJ, PDPJ-Br, Justiça 4.0 | 5 |
+| **Tribunais-Superiores** | STF, STJ, TST, TSE, STM, CJF, CNMP, CSJT | 9 |
+| **Tribunais-Estaduais** | TJs de todos os 27 estados | 29 |
+| **TRFs** | TRF1 a TRF6 + atos normativos | 8 |
+| **TRTs** | TRT1 a TRT24 | 27 |
+| **TREs** | TRE de todos os estados | 27 |
+| **TOTAL** | | **104 fontes** |
+
+> **Taxa de sucesso atual (Fase 3):** 93/94 fontes ativas = **99%**
+> (1 ZERO temporário por erro HTTP 500 no servidor do tribunal)
+
+### Fontes marcadas como PULADO (skip)
+
+Fontes legitimamente inacessíveis para scraper externo:
+
+| Motivo | Fontes |
+|--------|--------|
+| Formulário/busca JS (sem listagem estática) | CNJ-Norm, TJPR-Norm, TRF4-Norm, TRT9 |
+| Geo-bloqueio / rede interna do tribunal | TJRN |
+| Redirecionamento para login | TRF2 |
+| Bloqueio de scraper (retorna None) | TRF3 |
+| URL inexistente (404) | TRT10 |
+| Bot detection (Cloudflare JS challenge) | TRT17 |
+| Timeout Playwright — inacessível externamente | TJPI |
+
+---
+
+## 🔧 Tecnologias
+
+| Biblioteca | Versão | Uso |
+|---|---|---|
+| `requests` / `urllib3` | — | Fetch HTTP de portais estáticos |
+| `beautifulsoup4` + `lxml` | — | Parsing HTML multi-CMS |
+| `playwright` (Chromium) | — | Renderização de portais JS-only (SPA, Liferay, etc.) |
+| `feedparser` | — | Parsing de feeds RSS/Atom (Fase 1 + STJ) |
+| `sqlite3` | built-in | Persistência e deduplicação de notícias |
+| `smtplib` / `email.mime` | built-in | Geração de e-mail HTML responsivo + SMTP |
+| `reportlab` | — | Geração de relatório PDF |
+| `re` / `unicodedata` | built-in | Normalização e filtragem por regex |
+| `pytest` | — | 1398 testes automatizados |
+| **GitHub Actions** | — | CI/CD, cron job diário, cache SQLite |
 
 **Python 3.12+** é necessário.
 
 ---
 
-## 🚀 Como Configurar e Rodar
+## 🚀 Configuração e Deploy
 
-O projeto foi desenhado para rodar nativamente e **sem custos** no **GitHub Actions**.
+O MAST foi projetado para rodar **sem custos** no GitHub Actions.
 
-### 1. Configurar os Secrets do Repositório
+### 1. Secrets do Repositório
 
-Vá em `Settings` → `Secrets and variables` → `Actions` → `New repository secret` e adicione:
+Em `Settings → Secrets and variables → Actions`, adicione:
 
 | Secret | Descrição |
-|---|---|
-| `EMAIL_REMETENTE` | E-mail que enviará os relatórios automatizados |
-| `EMAIL_SENHA` | App Password (Senha de Aplicativo) do provedor de e-mail |
-| `EMAIL_DESTINATARIO` | E-mail (ou endereço de integração Slack/Teams) que receberá os alertas |
+|--------|-----------|
+| `EMAIL_REMETENTE` | Endereço que envia os alertas |
+| `EMAIL_SENHA` | App Password do Gmail (gerada com 2FA ativo) |
+| `EMAIL_SLACK_DESTINATARIO` | Destino dos alertas (e-mail ou integração Slack/Teams) |
+| `SHEETS_WEBHOOK_URL` | URL do webhook do Google Sheets (opcional) |
 
-> **Dica:** Para Gmail, gere uma [Senha de App](https://myaccount.google.com/apppasswords) com autenticação de dois fatores ativada.
+> Para Gmail: gere uma [Senha de App](https://myaccount.google.com/apppasswords) com autenticação de dois fatores ativada.
 
 ### 2. Execução Automática
 
-O workflow já está configurado para rodar diariamente via cron job, chamando o `main.py` com o `PYTHONPATH` ajustado. Nenhuma configuração adicional é necessária após os secrets estarem definidos.
+O workflow `.github/workflows/main.yml` está configurado para:
+- **Cron diário** às 10h UTC (07h Brasília)
+- **Disparo manual** via `workflow_dispatch` na aba Actions
+- **Persistência do banco SQLite** via cache + artifact (fallback de até 90 dias)
+- **Playwright/Chromium** instalado automaticamente no runner
 
-### 3. Execução Manual
+### 3. Execução Manual via GitHub
 
-1. Vá na aba **Actions** do repositório.
-2. Selecione o workflow de monitoramento.
-3. Clique em **Run workflow**.
+1. Vá na aba **Actions** do repositório
+2. Selecione o workflow `MAST v1 — Monitoramento Automatizado de Sistemas e Tribunais`
+3. Clique em **Run workflow**
 
-### 4. Execução Local (opcional)
+---
+
+## 💻 Execução Local
 
 ```bash
-git clone https://github.com/mantiniDev/noticias_alertas_2FA.git
-cd noticias_alertas_2FA
+# 1. Clone e entre na pasta
+git clone <url-do-repositorio>
+cd noticias_alertas_2FA/v1
 
-pip install feedparser
+# 2. Crie e ative o ambiente virtual
+python -m venv .venv
+source .venv/bin/activate        # Linux/macOS
+.venv\Scripts\activate           # Windows
 
-# Defina as variáveis de ambiente
+# 3. Instale as dependências
+pip install -r requirements.txt
+
+# 4. Instale o Chromium para o Playwright
+python -m playwright install chromium --with-deps
+
+# 5. Configure as variáveis de ambiente
 export EMAIL_REMETENTE="seu@email.com"
 export EMAIL_SENHA="sua_app_password"
-export EMAIL_DESTINATARIO="destino@email.com"
+export EMAIL_SLACK_DESTINATARIO="destino@email.com"
+export SHEETS_WEBHOOK_URL="https://..."   # opcional
 
-python main.py
+# 6. Execute
+PYTHONPATH=. python main.py
 ```
 
 ---
 
-## 🧠 Customização
+## 🧪 Testes
 
-Toda a lógica de filtragem é controlada por listas em **`config/settings.py`** — sem necessidade de alterar código.
+```bash
+cd v1
+pytest tests/ -v
+```
 
-| Lista | Função |
+**1398 testes** cobrindo parsers, filtros, banco de dados e geração de relatórios.
+
+Principais suítes:
+
+| Arquivo | Cobertura |
+|---------|-----------|
+| `test_scraper_direto.py` | Parsers multi-CMS, estratégias S1–S5, `_limpar_data_titulo`, deduplicação |
+| `test_filter.py` | Motor de palavras-chave, normalização unicode, `_RE_PURE_DATE` |
+| `test_database.py` | Persistência SQLite, controle de duplicatas |
+| `test_csv_generator.py` | Geração e formatação do CSV de relatório |
+
+---
+
+## 🔍 Scripts de Diagnóstico
+
+### `diagnostico_fase3.py`
+Testa todas as 104 fontes da Fase 3 e gera um relatório `diagnostico_fase3_YYYY-MM-DD.csv`:
+
+```bash
+cd v1
+python diagnostico_fase3.py
+```
+
+Saída por fonte: `✅ OK` / `⚠️ ZERO` / `❌ ERRO` / `⏭️ PULADO`
+
+### `inspecionar_zeros.py`
+Inspeciona a estrutura HTML de fontes com ZERO/ERRO para identificar qual seletor de área foi escolhido e por que o parser não extraiu itens:
+
+```bash
+# Edite ALVOS no início do script para as siglas desejadas
+cd v1
+python inspecionar_zeros.py
+```
+
+---
+
+## ⚙️ Customização
+
+Toda a lógica de filtragem da Fase 1 é controlada em **`config/settings.py`**:
+
+| Configuração | Função |
 |---|---|
-| `TERMOS_FORTES_TI` | Termos simples que acionam o alerta (ex: `MFA`, `PJe`, `indisponível`) |
-| `TERMOS_COMPOSTOS` | Expressões compostas que acionam o alerta (ex: `autenticação em dois fatores`) |
-| `TERMOS_BLOQUEADOS` | Palavras que descartam a notícia instantaneamente (ex: `concurso`, `eleição`) |
+| `TERMOS_FORTES_TI` | Termos simples que acionam o alerta (ex.: `MFA`, `PJe`, `indisponível`) |
+| `TERMOS_COMPOSTOS` | Expressões compostas (ex.: `autenticação em dois fatores`) |
+| `TERMOS_BLOQUEADOS` | Palavras que descartam a notícia (ex.: `concurso`, `eleição`) |
+| `DIAS_JANELA` | Janela de tempo para busca de notícias (padrão: 2 dias) |
+| `CSV_LIMITE_REGISTROS` | Limite de registros no relatório CSV |
 
----
-
-## 🚧 Desafios de Engenharia Resolvidos
-
-- **Ruído Administrativo:** Tribunais publicam muito conteúdo não-técnico. A `TERMOS_BLOQUEADOS` aliada a regex com `\b` (word boundary) bloqueia notícias fora do escopo de TI.
-- **Rate Limits (Erro 400):** Pesquisar mais de 60 domínios simultaneamente gera URLs muito longas. O scraper divide os domínios em blocos menores para evitar o erro.
-- **Plurais e Acentos:** O motor usa regex flexível com `(s|es)?` e a biblioteca `unicodedata` para normalizar acentos antes da validação (`manutencao` == `manutenção`).
-- **Deduplicação:** O banco SQLite registra cada notícia já vista, garantindo que o mesmo item não gere alertas repetidos em execuções futuras.
-
----
-
-## 🗺️ Roadmap
-
-- [ ] **Motor Secundário (Scraper Direto):** Varredura direta de páginas de indisponibilidade oficiais e painéis de aviso, sem depender de indexadores de busca.
-- [ ] **Filtro Anti-Ruído Estrutural:** Uso do `BeautifulSoup` para ignorar menus de navegação (`<nav>`) e rodapés antes da análise de conteúdo.
-- [ ] **Integração Telegram:** Leitura de canais oficiais como *PJe News* (`t.me/s/pjenews`).
-- [ ] **Dashboard Web:** Painel de visualização histórica das notícias arquivadas no SQLite.
+Para **adicionar novas fontes** na Fase 3, edite a lista `FONTES` em `core/scraper_direto.py` seguindo o padrão documentado no cabeçalho do arquivo.
 
 ---
 
@@ -168,4 +285,4 @@ Este projeto está licenciado sob a [MIT License](https://opensource.org/license
 
 ---
 
-*[Jusbrasil](https://www.jusbrasil.com.br) — desenvolvido por [mantiniDev](https://github.com/mantiniDev) · Focado em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas.*
+*Desenvolvido por [Jusbrasil](https://www.jusbrasil.com.br) — Foco em Cibersegurança, Threat Intelligence e SRE para infraestruturas críticas do Judiciário Brasileiro.*
