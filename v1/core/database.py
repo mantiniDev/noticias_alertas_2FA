@@ -181,6 +181,7 @@ def buscar_dados_para_csv(limite: int = 500, desde: datetime | None = None) -> l
                 FROM banco_scraper s
                 INNER JOIN banco_filter f ON s.link = f.link
                 WHERE s.data_noticia >= ?
+                  AND s.nome_fonte NOT LIKE 'Notícias — %'
                 ORDER BY s.id DESC
                 LIMIT ?
             ''', (desde_str, limite))
@@ -197,6 +198,7 @@ def buscar_dados_para_csv(limite: int = 500, desde: datetime | None = None) -> l
                     s.link
                 FROM banco_scraper s
                 INNER JOIN banco_filter f ON s.link = f.link
+                WHERE s.nome_fonte NOT LIKE 'Notícias — %'
                 ORDER BY s.id DESC
                 LIMIT ?
             ''', (limite,))

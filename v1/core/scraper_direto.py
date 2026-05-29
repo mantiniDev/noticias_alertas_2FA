@@ -3171,7 +3171,10 @@ def buscar_noticias_fontes() -> dict[str, list]:
                 noticia["resumo"],
             )
 
-            # Fase 3 não grava no banco de auditoria — não deve aparecer no CSV/PDF
+            # Salva no banco para garantir deduplicação cross-run.
+            # O CSV/PDF filtra fontes "Notícias — *" e não exibe itens da Fase 3.
+            salvar_auditoria(noticia, status, motivo, palavra, termo, titulo_chave)
+
             if status == "novo":
                 noticia["palavra_extraida"] = palavra
                 noticia["termo_base"]       = termo
