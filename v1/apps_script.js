@@ -8,7 +8,10 @@
 //    Quem tem acesso: Qualquer pessoa
 // ============================================================
 
-var SPREADSHEET_ID = "1Ny0_IzTczY9pNxSGAnYS6OvLmBaeveWVajSVTa7E9qA";
+// SPREADSHEET_ID não está hardcoded aqui.
+// Configure em: Apps Script > Configurações do projeto > Propriedades do script
+//   Chave: SPREADSHEET_ID   Valor: <id da sua planilha>
+var SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
 var SHEET_NAME     = "script_git";
 var COLUNAS        = [
   "Titulo", "Link", "Data Publicacao", "Fonte",
@@ -80,6 +83,7 @@ function doGet(e) {
 //  Helpers
 // ------------------------------------------------------------
 function _getSheet() {
+  if (!SPREADSHEET_ID) throw new Error("SPREADSHEET_ID não configurado. Vá em Configurações do projeto > Propriedades do script.");
   var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   if (!ss) throw new Error("Planilha não encontrada: " + SPREADSHEET_ID);
   var sheet = ss.getSheetByName(SHEET_NAME);

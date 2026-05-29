@@ -26,6 +26,7 @@ import re
 import time
 import warnings
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 import requests
 import urllib3
@@ -35,17 +36,15 @@ from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS, DIAS
 from core.filter import avaliar_noticia, normalizar_titulo_chave
 from core.database import verificar_status_noticia, verificar_titulo_chave, salvar_auditoria
 
-# Suprime aviso de SSL apenas quando o fallback verify=False é acionado explicitamente
-warnings.filterwarnings("ignore", category=urllib3.exceptions.InsecureRequestWarning)
-
 log = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Constantes locais de apresentação HTTP
 # ---------------------------------------------------------------------------
 
-# Fuso horário de Brasília (UTC-3) — sem horário de verão desde 2019.
-_BRT = timezone(timedelta(hours=-3))
+# Fuso horário de Brasília — ZoneInfo é preferível ao offset fixo por clareza semântica.
+# Brasil não usa horário de verão desde 2019, então UTC-3 é permanente.
+_BRT = ZoneInfo("America/Sao_Paulo")
 
 # Regex para detectar títulos que são APENAS datas/timestamps sem conteúdo textual.
 # Usada pelo parse_generic_table para evitar usar uma data como título da notícia.
@@ -2285,8 +2284,10 @@ def _fetch_requests(url: str):
     """Baixa página via requests. Retorna BeautifulSoup ou None.
 
     Tenta primeiro com verify=True (seguro). Se o tribunal tiver problema
-    de certificado (SSLError), reexecuta com verify=False e registra aviso
-    — mantendo segurança na maioria dos sites mas tolerando CAs antigas.
+    de certificado (SSLError) E a URL pertencer a um domínio .jus.br
+    confiável, reexecuta com verify=False — o aviso é suprimido apenas
+    localmente para essa requisição, não de forma global.
+    Domínios externos com SSL inválido recebem erro normal.
     """
     try:
         resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=True)
@@ -2295,9 +2296,17 @@ def _fetch_requests(url: str):
             return None
         return BeautifulSoup(resp.text, "lxml")
     except requests.exceptions.SSLError:
-        log.warning("⚠️  Certificado SSL inválido em %s — retentando sem verificação.", url)
+        # Fallback sem verificação limitado a portais .jus.br (evita MITM em externos)
+        from urllib.parse import urlparse
+        host = urlparse(url).netloc.lower()
+        if not host.endswith(".jus.br"):
+            log.warning("⚠️  SSL inválido em domínio externo (%s) — abortando.", url)
+            return None
+        log.warning("⚠️  Certificado SSL inválido em %s — retentando sem verificação (domínio .jus.br).", url)
         try:
-            resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", urllib3.exceptions.InsecureRequestWarning)
+                resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, verify=False)
             resp.raise_for_status()
             if len(resp.text) < 400:
                 return None
