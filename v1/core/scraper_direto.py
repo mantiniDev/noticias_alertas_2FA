@@ -25,7 +25,7 @@ import logging
 import re
 import time
 import warnings
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 import requests
 import urllib3
@@ -43,6 +43,9 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Constantes locais de apresentação HTTP
 # ---------------------------------------------------------------------------
+
+# Fuso horário de Brasília (UTC-3) — sem horário de verão desde 2019.
+_BRT = timezone(timedelta(hours=-3))
 
 # Regex para detectar títulos que são APENAS datas/timestamps sem conteúdo textual.
 # Usada pelo parse_generic_table para evitar usar uma data como título da notícia.
@@ -2957,7 +2960,7 @@ def _montar_noticia_bruta(item: dict, acronym: str, name: str, grupo: str = "") 
         "titulo":   item["titulo"],
         "resumo":   item.get("resumo", ""),
         "link":     item["link"],
-        "data_obj": datetime.now(timezone.utc).replace(tzinfo=None),
+        "data_obj": datetime.now(_BRT).replace(tzinfo=None),
         "fonte":    f"Scraper Direto — {acronym}",
         "grupo":    grupo,
         "tipo":     "Indisponibilidade",
@@ -2972,7 +2975,7 @@ def _montar_noticia_fontes(item: dict, fonte: dict) -> dict:
         "titulo":   item["titulo"],
         "resumo":   item.get("resumo", ""),
         "link":     item["link"],
-        "data_obj": datetime.now(timezone.utc).replace(tzinfo=None),
+        "data_obj": datetime.now(_BRT).replace(tzinfo=None),
         "fonte":    f"Notícias — {fonte['acronym']}",
         "grupo":    fonte.get("grupo", ""),
         "tipo":     fonte.get("tipo", ""),

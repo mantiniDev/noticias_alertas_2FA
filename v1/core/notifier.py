@@ -117,20 +117,25 @@ def gerar_corpos_email(
                     badge_html = ""
                     badge_txt = ""
 
-                # Link oficial de indisponibilidade (apenas para alertas)
+                # Link oficial de indisponibilidade (apenas para alertas cujo link
+                # não aponta diretamente para um domínio .jus.br — evita duplicar
+                # o link quando o Scraper Direto já extraiu a URL do próprio tribunal).
                 link_oficial_html = ""
                 if is_alerta:
-                    titulo_lower = noticia["titulo"].lower()
-                    for tribunal in TRIBUNAIS:
-                        if tribunal["acronym"].lower() in titulo_lower:
-                            link_oficial_html = (
-                                f"<br><a href='{tribunal['url']}' "
-                                f"style='display:inline-block; margin-top:8px; padding:5px 10px; "
-                                f"background-color:#fde8e8; color:#c0392b; "
-                                f"text-decoration:none; border-radius:4px; font-size:0.85em;'>"
-                                f"🔗 Portal de indisponibilidade — {tribunal['acronym']}</a>"
-                            )
-                            break
+                    noticia_link = noticia.get("link", "")
+                    link_is_official = ".jus.br" in noticia_link
+                    if not link_is_official:
+                        titulo_lower = noticia["titulo"].lower()
+                        for tribunal in TRIBUNAIS:
+                            if tribunal["acronym"].lower() in titulo_lower:
+                                link_oficial_html = (
+                                    f"<br><a href='{tribunal['url']}' "
+                                    f"style='display:inline-block; margin-top:8px; padding:5px 10px; "
+                                    f"background-color:#fde8e8; color:#c0392b; "
+                                    f"text-decoration:none; border-radius:4px; font-size:0.85em;'>"
+                                    f"🔗 Portal de indisponibilidade — {tribunal['acronym']}</a>"
+                                )
+                                break
 
                 texto_puro += (
                     f"  {badge_txt} {noticia['titulo']}\n"
