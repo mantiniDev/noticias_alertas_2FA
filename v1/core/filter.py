@@ -63,6 +63,23 @@ _COMPOSTOS: list[tuple[re.Pattern, re.Pattern, str, str]] = [
 # Padrão de arquivo — compilado uma vez
 _ARQUIVO = re.compile(r'\.(pdf|doc|docx|xls|xlsx)(\s*-|$)')
 
+# Títulos que são APENAS data/hora sem conteúdo textual útil.
+# Exemplos que devem ser rejeitados:
+#   "08/06/2014"  |  "23/06/2014 15h30min"  |  "03/11/2025 (segunda-feira) 16h"
+#   "27/11/2017 (dia todo)"  |  "16/05/2026 (sábado) 12h"
+# Exemplos que NÃO devem ser rejeitados (têm conteúdo após a data):
+#   "11/05/2026 16:03 — Indisponibilidade do sistema entre 13h e 16h03m"
+_RE_TITULO_SO_DATA = re.compile(
+    r'^\d{1,2}[/\.\-]\d{1,2}[/\.\-]\d{2,4}'   # data base (dd/mm/aaaa)
+    r'(?:'
+    r'\s+\([^)]+\)'                               # (texto entre parênteses): "(segunda-feira)", "(dia todo)"
+    r'|\s+[\d:h]+(?:min)?'                        # hora: "15h30min", "16:03", "12h"
+    r'|\s+às?\s+[\d:h]+(?:min)?'                 # "às 15h", "a 16h30"
+    r')*'
+    r'\s*$',
+    re.IGNORECASE,
+)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Funções de avaliação (usam apenas os padrões pré-compilados acima)
@@ -154,6 +171,12 @@ def avaliar_noticia(titulo: str, resumo: str) -> tuple[str, str, str, str]:
     titulo_puro = titulo.rsplit(' - ', 1)[0]
     titulo_formatado = remover_acentos(titulo_puro.lower())
     resumo_formatado = remover_acentos(resumo.lower()) if resumo else ""
+
+    # 0. Rejeita títulos que são apenas data/hora sem conteúdo textual
+    #    (ex: "08/06/2014", "23/06/2014 15h30min", "03/11/2025 (segunda-feira) 16h")
+    #    Impede que o resumo do PDF aprove certidões históricas com título vazio.
+    if _RE_TITULO_SO_DATA.match(titulo_puro.strip()):
+        return 'irrelevante', 'Título é data pura (sem conteúdo)', 'N/A', 'N/A'
 
     # 1. Imunidade no Título
     imune, termo_imune = titulo_tem_imunidade(titulo_formatado)
