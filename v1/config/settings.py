@@ -24,7 +24,7 @@ TRIBUNAIS = [
     # --- TRIBUNAIS DE JUSTIÇA ESTADUAIS (27 TJs) ---
     {"id": "101", "name": "Tribunal de Justiça do Acre 1g", "acronym": "TJAC",
         "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-1grau"},
-    {"id": "102", "name": "Tribunal de Justiça de Acre 2G", "acronym": "TJAL",
+    {"id": "102", "name": "Tribunal de Justiça de Acre 2G", "acronym": "TJAC",
         "url": "https://www.tjac.jus.br/indisponibilidade/?tax=grau-2grau"},
     {"id": "103", "name": "Tribunal de Justiça de Alagoas", "acronym": "TJAL",
         "url": "https://www.tjal.jus.br/indisponibilidades"},
@@ -56,7 +56,7 @@ TRIBUNAIS = [
         "url": "https://www.tjpa.jus.br/PortalExterno/indexBibliotecaDigital.xhtml#resultados=&categoria=353&biblioteca=Documentos+Oficiais"},
     {"id": "117", "name": "Tribunal de Justiça da Paraíba 1G", "acronym": "TJPB",
         "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-1o-grau"},
-    {"id": "118", "name": "Tribunal de Justiça do Paraíba 2G", "acronym": "TJPR",
+    {"id": "118", "name": "Tribunal de Justiça do Paraíba 2G", "acronym": "TJPB",
         "url": "https://www.tjpb.jus.br/pje/monitoramento/indicador-de-indisponibilidade-do-pje-2o-grau-e-turmas-recursais"},
     {"id": "119", "name": "Tribunal de Justiça do Paraná", "acronym": "TJPR",
         "url": "https://www.tjpr.jus.br/home/-/asset_publisher/A2gt/content/id/5924367#5924367"},
