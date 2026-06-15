@@ -27,3 +27,7 @@ mast_dados.db
 
 # Playwright
 playwright/.local-browsers/
+
+# Variáveis de ambiente (segredos)
+.env
+.env.*
