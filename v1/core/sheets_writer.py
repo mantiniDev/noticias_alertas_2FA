@@ -23,7 +23,8 @@ import requests
 
 log = logging.getLogger(__name__)
 
-WEBHOOK_URL_ENV = "SHEETS_WEBHOOK_URL"
+WEBHOOK_URL_ENV    = "SHEETS_WEBHOOK_URL"
+WEBHOOK_SECRET_ENV = "SHEETS_WEBHOOK_SECRET"
 BATCH_SIZE = 200   # linhas por requisição (limite seguro do Apps Script)
 
 COLUNAS = [
@@ -53,6 +54,10 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
             f"Variável de ambiente '{WEBHOOK_URL_ENV}' não configurada. "
             "Cole a URL do Apps Script web app nessa variável."
         )
+
+    secret = os.environ.get(WEBHOOK_SECRET_ENV)
+    if secret:
+        url = f"{url}?secret={secret}"
 
     data_captura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

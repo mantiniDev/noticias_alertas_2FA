@@ -6,12 +6,16 @@
 //    Tipo: App da Web
 //    Executar como: Eu
 //    Quem tem acesso: Qualquer pessoa
+//
+//  Propriedades do script necessárias (Configurações do projeto):
+//    SPREADSHEET_ID  — ID da planilha
+//    WEBHOOK_SECRET  — token secreto (mesma string que SHEETS_WEBHOOK_SECRET no GitHub)
 // ============================================================
 
-// SPREADSHEET_ID não está hardcoded aqui.
+// SPREADSHEET_ID e WEBHOOK_SECRET não estão hardcoded aqui.
 // Configure em: Apps Script > Configurações do projeto > Propriedades do script
-//   Chave: SPREADSHEET_ID   Valor: <id da sua planilha>
 var SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty("SPREADSHEET_ID");
+var WEBHOOK_SECRET = PropertiesService.getScriptProperties().getProperty("WEBHOOK_SECRET");
 var SHEET_NAME     = "script_git";
 var COLUNAS        = [
   "Titulo", "Link", "Data Publicacao", "Fonte",
@@ -23,12 +27,18 @@ var COLUNAS        = [
 // ------------------------------------------------------------
 function doPost(e) {
   try {
-    // 1. Validar presença do body
+    // 1. Validar token secreto
+    var secret = (e && e.parameter && e.parameter.secret) ? e.parameter.secret : null;
+    if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
+      return _resposta({ status: "error", message: "Unauthorized" });
+    }
+
+    // 2. Validar presença do body
     if (!e || !e.postData || !e.postData.contents) {
       return _resposta({ status: "error", message: "postData ausente ou vazio" });
     }
 
-    // 2. Parsear JSON
+    // 3. Parsear JSON
     var payload;
     try {
       payload = JSON.parse(e.postData.contents);
@@ -36,7 +46,7 @@ function doPost(e) {
       return _resposta({ status: "error", message: "JSON inválido: " + parseErr.toString() });
     }
 
-    // 3. Validar campo "rows"
+    // 4. Validar campo "rows"
     if (!payload || !Array.isArray(payload.rows)) {
       return _resposta({ status: "error", message: "Campo 'rows' ausente ou não é array" });
     }
@@ -46,11 +56,11 @@ function doPost(e) {
       return _resposta({ status: "ok", inserted: 0 });
     }
 
-    // 4. Abrir planilha e aba
+    // 5. Abrir planilha e aba
     var sheet = _getSheet();
     _garantirCabecalho(sheet);
 
-    // 5. Normalizar linhas (garantir 8 colunas, substituir null por "")
+    // 6. Normalizar linhas (garantir 8 colunas, substituir null por "")
     var normalizadas = rows.map(function(row) {
       var r = Array.isArray(row) ? row.slice() : [];
       while (r.length < COLUNAS.length) r.push("");
@@ -59,7 +69,7 @@ function doPost(e) {
       });
     });
 
-    // 6. Inserir em batch (setValues é muito mais rápido que appendRow em loop)
+    // 7. Inserir em batch (setValues é muito mais rápido que appendRow em loop)
     var lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, normalizadas.length, COLUNAS.length)
          .setValues(normalizadas);
