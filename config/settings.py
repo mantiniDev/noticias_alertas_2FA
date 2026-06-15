@@ -172,7 +172,7 @@ FONTES_OFICIAIS = [
     {"nome": "TJSP - Notícias Gerais",
         "url": "https://www.tjsp.jus.br/Noticias", "tipo": "Notícias"},
     {"nome": "TJSP - Comunicados (Precatórios)",
-     "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=85", "tipo": "Comunicados"},
+     "url": "https://www.tjsp.jus.br/Precatorios/Comunicados?tipoDestino=87", "tipo": "Comunicados"},
     {"nome": "TJMG - Notícias",
         "url": "https://www.tjmg.jus.br/portal-tjmg/noticias/", "tipo": "Notícias"},
     {"nome": "TJMG - Atos Normativos",
@@ -218,6 +218,47 @@ FONTES_OFICIAIS = [
         "url": "https://portal.trt3.jus.br/internet/conheca-o-trt/comunicacao/noticias-institucionais", "tipo": "Notícias"},
     {"nome": "TRT4 - Notícias",
         "url": "https://www.trt4.jus.br/portais/trt4/modulos/noticias/todas/0", "tipo": "Notícias"},
+
+    # TJTO
+    {"nome": "TJTO - Portal de Transparência", "url": "https://transparencia.tjto.jus.br", "tipo": "Transparência"},
+
+    # TJRS
+    {"nome": "TJRS - DITIC", "url": "https://www.tjrs.jus.br/novo/institucional/direcoes/ditic/", "tipo": "TI"},
+    {"nome": "TJRS - API de Dados Abertos", "url": "https://www.tjrs.jus.br/novo/api-de-dados-abertos/", "tipo": "TI"},
+
+    # TRF1
+    {"nome": "TRF1 - Sobre Tecnologia da Informação", "url": "https://www.trf1.jus.br/trf1/apresentacao/sobre-tecnologia-da-informacao", "tipo": "TI"},
+    {"nome": "TRF1 - Gestão e Transparência TI", "url": "https://www.trf1.jus.br/trf1/gestao-tecnologia-da-informacao/transparencia", "tipo": "Transparência"},
+
+    # TJPR
+    {"nome": "TJPR - Projudi", "url": "https://projudi.tjpr.jus.br/projudi/", "tipo": "Sistema Judicial"},
+
+    # TRF5
+    {"nome": "TRF5 - Atos Normativos", "url": "https://www.trf5.jus.br/index.php/atos-normativos", "tipo": "Normativos"},
+
+    # TRT15
+    {"nome": "TRT15 - Mais Notícias", "url": "https://trt15.jus.br/noticias/maisnoticias", "tipo": "Notícias"},
+    {"nome": "TRT15 - Decisões", "url": "https://trt15.jus.br/noticias/decisoes", "tipo": "Notícias"},
+    {"nome": "TRT15 - DEJT", "url": "https://dejt.jt.jus.br/dejt/", "tipo": "Notícias"},
+    {"nome": "TRT15 - Governança de TIC", "url": "https://trt15.jus.br/transparencia/contas-publicas/governanca-de-tic", "tipo": "TI"},
+
+    # TJPI
+    {"nome": "TJPI - PJe Comunicados", "url": "https://comunica.pje.jus.br/", "tipo": "Notícias PJe"},
+    {"nome": "TJPI - Transparência (Normas)", "url": "https://www.tjpi.jus.br/transparencia/boxes/101/public", "tipo": "Transparência"},
+    {"nome": "TJPI - Transparência (Gestão TIC)", "url": "https://www.tjpi.jus.br/transparencia/boxes/664/public", "tipo": "Transparência"},
+    {"nome": "TJPI - Contratos", "url": "https://www.tjpi.jus.br/transparencia/contracts/contracts", "tipo": "Transparência"},
+    {"nome": "TJPI - Convênios", "url": "https://www.tjpi.jus.br/transparencia/contracts/covenants", "tipo": "Transparência"},
+    {"nome": "TJPI - Fiscais de Contratos", "url": "https://www.tjpi.jus.br/transparencia/contracts/fiscals", "tipo": "Transparência"},
+    {"nome": "TJPI - Transparência (Boxes 348)", "url": "https://www.tjpi.jus.br/transparencia/boxes/348/public", "tipo": "Transparência"},
+    {"nome": "TJPI - Transparência (Boxes 172)", "url": "https://www.tjpi.jus.br/transparencia/boxes/172/public", "tipo": "Transparência"},
+    {"nome": "TJPI - API Transparência", "url": "https://www.tjpi.jus.br/datacor-api/swagger-ui/index.html?urls.primaryName=Transpar%C3%AAncia", "tipo": "TI"},
+    {"nome": "TJPI - Transparência (Boxes 384)", "url": "https://www.tjpi.jus.br/transparencia/boxes/384/public", "tipo": "Transparência"},
+    {"nome": "TJPI - RSS", "url": "https://www.tjpi.jus.br/portaltjpi/rss-tjpi/", "tipo": "Notícias"},
+    {"nome": "TJPI - API Docs Transparência", "url": "https://www.tjpi.jus.br/transparencia/api-docs/index.html", "tipo": "TI"},
+
+    # TJRJ
+    {"nome": "TJRJ - Atos Normativos (2ª VP)", "url": "https://www.tjrj.jus.br/institucional/vice_pres/2vice_pres/atos-normativos", "tipo": "Normativos"},
+    {"nome": "TJRJ - SGTEC", "url": "https://www.tjrj.jus.br/institucional/secretarias-gerais/sgtec", "tipo": "TI"},
 ]
     
 TERMOS_ESPECIFICOS = [
