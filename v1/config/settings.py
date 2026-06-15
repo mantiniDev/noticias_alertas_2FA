@@ -259,6 +259,27 @@ FONTES_OFICIAIS = [
     # TJRJ
     {"nome": "TJRJ - Atos Normativos (2ª VP)", "url": "https://www.tjrj.jus.br/institucional/vice_pres/2vice_pres/atos-normativos", "tipo": "Normativos"},
     {"nome": "TJRJ - SGTEC", "url": "https://www.tjrj.jus.br/institucional/secretarias-gerais/sgtec", "tipo": "TI"},
+
+    # TJRS (adicionais)
+    {"nome": "TJRS - Busca de Conteúdo", "url": "https://www.tjrs.jus.br/novo/conteudo-busca/", "tipo": "Notícias"},
+    {"nome": "TJRS - Publicações Administrativas (XML)", "url": "https://www.tjrs.jus.br/publicacoes/publ_adm_xml/index.php", "tipo": "Normativos"},
+
+    # TJMG (adicionais)
+    {"nome": "TJMG - DJEN", "url": "https://www.tjmg.jus.br/portal-tjmg/diarios-de-justica-eletronicos-djen/", "tipo": "Normativos"},
+    {"nome": "TJMG - TI e Comunicação", "url": "https://www.tjmg.jus.br/portal-tjmg/transparencia/tecnologia-da-informacao-e-comunicacao/", "tipo": "TI"},
+    {"nome": "TJMG - RSS", "url": "https://www.tjmg.jus.br/portal-tjmg/rss/", "tipo": "Notícias"},
+
+    # CNJ (adicionais)
+    {"nome": "CNJ - DataJud API Pública", "url": "https://datajud-wiki.cnj.jus.br/api-publica/", "tipo": "TI"},
+
+    # TRF1 (adicionais)
+    {"nome": "TRF1 - Biblioteca DJe", "url": "https://www.trf1.jus.br/trf1/biblioteca/diarios-da-justica", "tipo": "Normativos"},
+    {"nome": "TRF1 - PJe Comunicados", "url": "https://comunica.pje.jus.br/consulta?siglaTribunal=TRF1", "tipo": "Notícias PJe"},
+    {"nome": "TRF1 - DSpace", "url": "https://portal.trf1.jus.br/dspace/", "tipo": "Normativos"},
+
+    # TRF5 (adicionais)
+    {"nome": "TRF5 - Licitações", "url": "https://www.trf5.jus.br/index.php/licitacoes-e-contratos/licitacoes", "tipo": "Transparência"},
+    {"nome": "TRF5 - Consulta de Contratos", "url": "https://www.trf5.jus.br/index.php/licitacoes-e-contratos/consultas-de-contratos", "tipo": "Transparência"},
 ]
     
 TERMOS_ESPECIFICOS = [
