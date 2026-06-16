@@ -2,7 +2,7 @@ name: MAST v1 — Monitoramento Automatizado de Sistemas e Tribunais
 
 on:
   schedule:
-    - cron: '00 10 * * *'
+    - cron: '00 08 * * *'
   workflow_dispatch:
 
 jobs:
