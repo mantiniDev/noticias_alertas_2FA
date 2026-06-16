@@ -73,6 +73,7 @@ jobs:
           EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
           EMAIL_SLACK_DESTINATARIO: ${{ secrets.EMAIL_SLACK_DESTINATARIO }}
           SHEETS_WEBHOOK_URL: ${{ secrets.SHEETS_WEBHOOK_URL }}
+          SHEETS_WEBHOOK_SECRET: ${{ secrets.SHEETS_WEBHOOK_SECRET }}
           PYTHONPATH: .
         run: |
           set -e

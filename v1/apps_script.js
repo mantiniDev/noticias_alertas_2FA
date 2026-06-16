@@ -27,23 +27,22 @@ var COLUNAS        = [
 // ------------------------------------------------------------
 function doPost(e) {
   try {
-    // 1. Validar token secreto
-    var secret = (e && e.parameter && e.parameter.secret) ? e.parameter.secret : null;
-    if (!WEBHOOK_SECRET || secret !== WEBHOOK_SECRET) {
-      return _resposta({ status: "error", message: "Unauthorized" });
-    }
-
-    // 2. Validar presença do body
+    // 1. Validar presença do body
     if (!e || !e.postData || !e.postData.contents) {
       return _resposta({ status: "error", message: "postData ausente ou vazio" });
     }
 
-    // 3. Parsear JSON
+    // 2. Parsear JSON
     var payload;
     try {
       payload = JSON.parse(e.postData.contents);
     } catch (parseErr) {
       return _resposta({ status: "error", message: "JSON inválido: " + parseErr.toString() });
+    }
+
+    // 3. Validar token secreto (no body, não exposto em logs de URL)
+    if (!WEBHOOK_SECRET || payload.secret !== WEBHOOK_SECRET) {
+      return _resposta({ status: "error", message: "Unauthorized" });
     }
 
     // 4. Validar campo "rows"

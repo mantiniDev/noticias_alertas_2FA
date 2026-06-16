@@ -56,8 +56,6 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
         )
 
     secret = os.environ.get(WEBHOOK_SECRET_ENV)
-    if secret:
-        url = f"{url}?secret={secret}"
 
     data_captura = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -97,7 +95,10 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
         # requests.post() segue o redirect 302 do Apps Script automaticamente,
         # convertendo POST→GET para buscar a resposta pre-computada no endpoint /echo.
         # Isso é o comportamento correto — não altere allow_redirects.
-        resp = requests.post(url, json={"rows": batch}, timeout=60)
+        payload = {"rows": batch}
+        if secret:
+            payload["secret"] = secret
+        resp = requests.post(url, json=payload, timeout=60)
         resp.raise_for_status()
 
         body = resp.text.strip()
