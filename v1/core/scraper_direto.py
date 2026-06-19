@@ -3082,8 +3082,10 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
             noticia_bruta = _montar_noticia_bruta(item, acronym, name, grupo=tribunal.get("grupo", ""))
 
             # Coleta bruta para Google Sheets (antes do filtro e banco)
+            bruta_entry: dict | None = None
             if brutas is not None:
-                brutas.append({**noticia_bruta, 'origem': 'Direto', 'termo_buscado': ''})
+                bruta_entry = {**noticia_bruta, 'origem': 'Direto', 'termo_buscado': ''}
+                brutas.append(bruta_entry)
 
             # Chave normalizada para deduplicação por conteúdo (cross-run)
             titulo_chave = normalizar_titulo_chave(noticia_bruta["titulo"])
@@ -3110,8 +3112,8 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 conteudo = buscar_conteudo_artigo(link)
                 if conteudo:
                     # Enriquece o item já inserido em brutas com o texto do artigo
-                    if brutas is not None:
-                        brutas[-1]["conteudo_artigo"] = conteudo
+                    if bruta_entry is not None:
+                        bruta_entry["conteudo_artigo"] = conteudo
                     s2, m2, p2, t2 = avaliar_noticia(noticia_bruta["titulo"], conteudo)
                     if s2 == "novo":
                         status, motivo, palavra, termo = s2, m2 + " (Conteúdo Artigo)", p2, t2
