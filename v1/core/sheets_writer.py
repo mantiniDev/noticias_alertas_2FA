@@ -36,6 +36,7 @@ COLUNAS = [
     "Termo Buscado",
     "Origem",
     "Data Captura",
+    "Conteudo Artigo",
 ]
 
 
@@ -80,6 +81,7 @@ def enviar_para_sheets(noticias: list[dict]) -> int:
             n.get("termo_buscado", "") or "",
             origem or "",
             data_captura,
+            n.get("conteudo_artigo", "") or "",
         ])
 
     # Envia em lotes para respeitar o timeout de 30s do Apps Script

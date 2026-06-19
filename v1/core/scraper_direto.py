@@ -2393,6 +2393,46 @@ def fetch_page(fonte: dict):
     return _fetch_playwright(url, wait_selector, extra_wait)
 
 # ---------------------------------------------------------------------------
+# Fase 4 — leitura do conteúdo completo do artigo
+# ---------------------------------------------------------------------------
+
+def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
+    """Busca o texto principal de um artigo individual para avaliação aprofundada.
+
+    Chamada apenas quando título + resumo da listagem não revelaram termos TI
+    (status 'irrelevante / Sem Termos TI'). Faz um GET no URL do artigo, remove
+    navegação/rodapé e retorna até max_chars caracteres do corpo principal —
+    suficiente para o filtro detectar termos que não aparecem na página de listagem.
+
+    Retorna string vazia em caso de erro, timeout ou resposta não-HTML.
+    """
+    try:
+        resp = requests.get(url, headers=HEADERS, timeout=10, verify=True)
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "")
+        if "html" not in content_type and "text" not in content_type:
+            return ""
+        soup = BeautifulSoup(resp.content, "html.parser")
+        for tag in soup(["script", "style", "nav", "header", "footer",
+                          "form", "noscript"]):
+            tag.decompose()
+        body = (
+            soup.find("article")
+            or soup.find("main")
+            or soup.find(class_=re.compile(
+                r"(content|corpo|texto|noticia|artigo|news|post|materia)",
+                re.I,
+            ))
+        )
+        if not body:
+            body = soup
+        text = " ".join(body.get_text(separator=" ").split())
+        return text[:max_chars]
+    except Exception:
+        return ""
+
+
+# ---------------------------------------------------------------------------
 # Helpers de extração
 # ---------------------------------------------------------------------------
 
@@ -3064,6 +3104,18 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 noticia_bruta["titulo"],
                 noticia_bruta["resumo"],
             )
+
+            # Fase 4 — leitura do artigo completo quando título+resumo não bastaram
+            if status == "irrelevante" and motivo == "Sem Termos TI":
+                conteudo = buscar_conteudo_artigo(link)
+                if conteudo:
+                    # Enriquece o item já inserido em brutas com o texto do artigo
+                    if brutas is not None:
+                        brutas[-1]["conteudo_artigo"] = conteudo
+                    s2, m2, p2, t2 = avaliar_noticia(noticia_bruta["titulo"], conteudo)
+                    if s2 == "novo":
+                        status, motivo, palavra, termo = s2, m2 + " (Conteúdo Artigo)", p2, t2
+                        log.debug("  [Fase 4] Aprovado por conteúdo: '%s'", noticia_bruta["titulo"][:80])
 
             # Persiste no banco incluindo titulo_chave para dedup cross-run futuro
             salvar_auditoria(noticia_bruta, status, motivo, palavra, termo, titulo_chave)

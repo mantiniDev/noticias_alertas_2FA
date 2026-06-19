@@ -19,7 +19,7 @@ var WEBHOOK_SECRET = PropertiesService.getScriptProperties().getProperty("WEBHOO
 var SHEET_NAME     = "script_git";
 var COLUNAS        = [
   "Titulo", "Link", "Data Publicacao", "Fonte",
-  "Resumo", "Termo Buscado", "Origem", "Data Captura"
+  "Resumo", "Termo Buscado", "Origem", "Data Captura", "Conteudo Artigo"
 ];
 
 // ------------------------------------------------------------
