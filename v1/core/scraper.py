@@ -14,6 +14,7 @@ from config.settings import (
 )
 from core.filter import avaliar_noticia, remover_acentos, normalizar_titulo_chave
 from core.database import verificar_status_noticia, verificar_titulo_chave, salvar_auditoria
+from core.scraper_direto import buscar_conteudo_artigo
 
 # ── Padrões para detecção de páginas de sistema (não-notícias) ────────────────
 # Fonte com aparência de domínio puro: sem espaços, contém pontos.
@@ -209,7 +210,11 @@ def extrair_noticias_do_feed(url_rss, data_limite, links_ja_coletados, todas_not
 
         # Coleta bruta para Google Sheets (antes do filtro e banco)
         if brutas is not None:
-            brutas.append({**noticia_bruta, 'origem': 'RSS', 'termo_buscado': termo})
+            bruta_entry_rss = {**noticia_bruta, 'origem': 'RSS', 'termo_buscado': termo}
+            brutas.append(bruta_entry_rss)
+            conteudo = buscar_conteudo_artigo(link)
+            if conteudo:
+                bruta_entry_rss['conteudo_artigo'] = conteudo
 
         # Chave normalizada para deduplicação por conteúdo (cross-run)
         titulo_chave = normalizar_titulo_chave(titulo)

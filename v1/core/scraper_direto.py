@@ -3107,13 +3107,13 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 noticia_bruta["resumo"],
             )
 
-            # Fase 4 — leitura do artigo completo quando título+resumo não bastaram
-            if status == "irrelevante" and motivo == "Sem Termos TI":
-                conteudo = buscar_conteudo_artigo(link)
-                if conteudo:
-                    # Enriquece o item já inserido em brutas com o texto do artigo
-                    if bruta_entry is not None:
-                        bruta_entry["conteudo_artigo"] = conteudo
+            # Busca conteúdo do artigo para todos os itens (enriquece brutas para Sheets)
+            conteudo = buscar_conteudo_artigo(link)
+            if conteudo:
+                if bruta_entry is not None:
+                    bruta_entry["conteudo_artigo"] = conteudo
+                # Fase 4 — reavalia apenas quando título+resumo não bastaram
+                if status == "irrelevante" and motivo == "Sem Termos TI":
                     s2, m2, p2, t2 = avaliar_noticia(noticia_bruta["titulo"], conteudo)
                     if s2 == "novo":
                         status, motivo, palavra, termo = s2, m2 + " (Conteúdo Artigo)", p2, t2
@@ -3223,7 +3223,11 @@ def buscar_noticias_fontes(brutas: list | None = None) -> dict[str, list]:
 
             # Coleta bruta para Sheets (antes do filtro)
             if brutas is not None:
-                brutas.append({**noticia, 'origem': 'Fontes', 'termo_buscado': ''})
+                bruta_entry_f3 = {**noticia, 'origem': 'Fontes', 'termo_buscado': ''}
+                brutas.append(bruta_entry_f3)
+                conteudo_f3 = buscar_conteudo_artigo(link)
+                if conteudo_f3:
+                    bruta_entry_f3['conteudo_artigo'] = conteudo_f3
 
             # Dedup contra o banco (Fase 1/2) — não salva auditoria da Fase 3
             if verificar_status_noticia(link):
