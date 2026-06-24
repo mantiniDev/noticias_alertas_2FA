@@ -104,7 +104,7 @@ if __name__ == "__main__":
 
     # ── Fase 3: Notícias Expandidas ────────────────────────────────────
     log.info("\n[Fase 3] Notícias Expandidas — %d fontes por categoria", len(FONTES_NOTICIAS))
-    noticias_fontes = buscar_noticias_fontes()   # dict[grupo, list]
+    noticias_fontes = buscar_noticias_fontes(brutas=noticias_brutas)   # dict[grupo, list]
 
     # ── Deduplicação Fases 1+2 por link E por conteúdo ────────────────
     # Dedup por link: evita o mesmo URL duas vezes.

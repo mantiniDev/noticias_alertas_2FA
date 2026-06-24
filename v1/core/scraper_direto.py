@@ -3148,7 +3148,7 @@ _GRUPOS_LABEL = {
 }
 
 
-def buscar_noticias_fontes() -> dict[str, list]:
+def buscar_noticias_fontes(brutas: list | None = None) -> dict[str, list]:
     """
     Ponto de entrada público — chamado pelo main.py para o Subsistema 2.
 
@@ -3220,6 +3220,10 @@ def buscar_noticias_fontes() -> dict[str, list]:
 
             noticia = _montar_noticia_fontes(item, fonte)
             titulo_chave = normalizar_titulo_chave(noticia["titulo"])
+
+            # Coleta bruta para Sheets (antes do filtro)
+            if brutas is not None:
+                brutas.append({**noticia, 'origem': 'Fontes', 'termo_buscado': ''})
 
             # Dedup contra o banco (Fase 1/2) — não salva auditoria da Fase 3
             if verificar_status_noticia(link):
