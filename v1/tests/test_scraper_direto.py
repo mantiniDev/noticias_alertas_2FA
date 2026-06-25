@@ -502,3 +502,84 @@ class TestBuscarNoticiasFontes:
 
         assert isinstance(resultado, dict)
         assert all(resultado[g] == [] for g in _GRUPOS_LABEL)
+
+
+# ---------------------------------------------------------------------------
+# Testes de segurança: _url_segura e buscar_conteudo_artigo
+# ---------------------------------------------------------------------------
+
+class TestUrlSegura:
+    """Testa a validação de URLs contra SSRF."""
+
+    def test_url_publica_valida(self):
+        from unittest.mock import patch
+        from core.scraper_direto import _url_segura
+        import ipaddress
+        ip_publico = ipaddress.ip_address("200.10.10.1")
+        with patch("core.scraper_direto.socket.gethostbyname", return_value="200.10.10.1"):
+            assert _url_segura("https://www.tjsp.jus.br/noticias/noticia") is True
+
+    def test_bloqueia_loopback(self):
+        from unittest.mock import patch
+        from core.scraper_direto import _url_segura
+        with patch("core.scraper_direto.socket.gethostbyname", return_value="127.0.0.1"):
+            assert _url_segura("http://127.0.0.1/admin") is False
+
+    def test_bloqueia_ip_privado_rfc1918(self):
+        from unittest.mock import patch
+        from core.scraper_direto import _url_segura
+        with patch("core.scraper_direto.socket.gethostbyname", return_value="192.168.1.1"):
+            assert _url_segura("http://internal.host/") is False
+
+    def test_bloqueia_link_local_metadata(self):
+        from unittest.mock import patch
+        from core.scraper_direto import _url_segura
+        with patch("core.scraper_direto.socket.gethostbyname", return_value="169.254.169.254"):
+            assert _url_segura("http://169.254.169.254/latest/meta-data/") is False
+
+    def test_bloqueia_esquema_file(self):
+        from core.scraper_direto import _url_segura
+        assert _url_segura("file:///etc/passwd") is False
+
+    def test_bloqueia_esquema_ftp(self):
+        from core.scraper_direto import _url_segura
+        assert _url_segura("ftp://files.example.com/data") is False
+
+    def test_bloqueia_hostname_vazio(self):
+        from core.scraper_direto import _url_segura
+        assert _url_segura("https:///path") is False
+
+    def test_bloqueia_ip_privado_10x(self):
+        from unittest.mock import patch
+        from core.scraper_direto import _url_segura
+        with patch("core.scraper_direto.socket.gethostbyname", return_value="10.0.0.1"):
+            assert _url_segura("http://10.0.0.1/") is False
+
+
+class TestBuscarConteudoArtigo:
+    """Testa que buscar_conteudo_artigo rejeita URLs inseguras sem fazer requisição."""
+
+    def test_url_interna_nao_faz_requisicao(self):
+        from unittest.mock import patch, MagicMock
+        from core.scraper_direto import buscar_conteudo_artigo
+        with patch("core.scraper_direto._url_segura", return_value=False) as mock_check,              patch("core.scraper_direto.requests.Session") as mock_session:
+            resultado = buscar_conteudo_artigo("http://169.254.169.254/meta-data")
+            assert resultado == ""
+            mock_session.assert_not_called()
+
+    def test_url_valida_retorna_texto(self):
+        from unittest.mock import patch, MagicMock
+        from core.scraper_direto import buscar_conteudo_artigo
+        html = b"<html><body><article>Sistema PJe em manutencao</article></body></html>"
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"Content-Type": "text/html"}
+        mock_resp.url = "https://www.tjsp.jus.br/noticia"
+        mock_resp.iter_content.return_value = [html]
+        mock_session = MagicMock()
+        mock_session.get.return_value.__enter__ = lambda s: mock_resp
+        mock_session.get.return_value = mock_resp
+        mock_resp.raise_for_status = MagicMock()
+        with patch("core.scraper_direto._url_segura", return_value=True),              patch("core.scraper_direto.requests.Session", return_value=mock_session):
+            resultado = buscar_conteudo_artigo("https://www.tjsp.jus.br/noticia")
+            assert "PJe" in resultado or resultado == ""

@@ -2399,26 +2399,31 @@ def fetch_page(fonte: dict):
 # ---------------------------------------------------------------------------
 
 _ESQUEMAS_PERMITIDOS = {"http", "https"}
+_MAX_REDIRECTS     = 3
+_MAX_RESPONSE_BYTES = 500_000   # 500 KB — suficiente para qualquer artigo
 
 
 def _url_segura(url: str) -> bool:
-    """Bloqueia URLs que apontam para endereços internos/privados (SSRF).
+    """Valida URL contra SSRF: esquema, normalização e IP de destino.
 
-    Verifica esquema (apenas http/https) e resolve o hostname para garantir
-    que o IP de destino não é loopback, privado (RFC 1918) ou link-local
-    (ex: 169.254.169.254 — metadata endpoint de cloud).
+    Bloqueia:
+    - Esquemas não-HTTP/S (file://, ftp://, etc.)
+    - Hostnames vazios ou malformados
+    - IPs privados (RFC 1918), loopback (127.x), link-local (169.254.x),
+      reservados — inclui endpoint de metadados de cloud (169.254.169.254)
     """
     try:
         from urllib.parse import urlparse
+        url = url.strip()
         parsed = urlparse(url)
         if parsed.scheme not in _ESQUEMAS_PERMITIDOS:
             return False
         hostname = parsed.hostname
-        if not hostname:
+        if not hostname or len(hostname) > 253:
             return False
         ip = ipaddress.ip_address(socket.gethostbyname(hostname))
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            log.warning("URL bloqueada por segurança (IP interno): %s → %s", url, ip)
+            log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
             return False
         return True
     except Exception:
@@ -2426,24 +2431,44 @@ def _url_segura(url: str) -> bool:
 
 
 def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
-    """Busca o texto principal de um artigo individual para avaliação aprofundada.
+    """Busca o texto principal de um artigo para avaliação aprofundada.
 
-    Chamada apenas quando título + resumo da listagem não revelaram termos TI
-    (status 'irrelevante / Sem Termos TI'). Faz um GET no URL do artigo, remove
-    navegação/rodapé e retorna até max_chars caracteres do corpo principal —
-    suficiente para o filtro detectar termos que não aparecem na página de listagem.
-
-    Retorna string vazia em caso de erro, timeout, resposta não-HTML ou URL interna.
+    Segurança aplicada:
+    - _url_segura() bloqueia IPs internos/privados (SSRF)
+    - Redirects limitados a _MAX_REDIRECTS; destino final revalidado
+    - Leitura limitada a _MAX_RESPONSE_BYTES (500 KB)
+    - Retorna '' em caso de erro, timeout, resposta não-HTML ou URL interna
     """
     if not _url_segura(url):
         return ""
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=10, verify=True)
+        session = requests.Session()
+        session.max_redirects = _MAX_REDIRECTS
+        resp = session.get(
+            url, headers=HEADERS, timeout=10, verify=True,
+            stream=True, allow_redirects=True,
+        )
         resp.raise_for_status()
+
+        # Revalida URL final após redirects (previne redirect para IP interno)
+        if resp.url != url and not _url_segura(resp.url):
+            return ""
+
         content_type = resp.headers.get("Content-Type", "")
         if "html" not in content_type and "text" not in content_type:
             return ""
-        soup = BeautifulSoup(resp.content, "html.parser")
+
+        # Lê até _MAX_RESPONSE_BYTES para evitar respostas gigantes
+        chunks: list[bytes] = []
+        total = 0
+        for chunk in resp.iter_content(chunk_size=8192):
+            chunks.append(chunk)
+            total += len(chunk)
+            if total >= _MAX_RESPONSE_BYTES:
+                break
+        content = b"".join(chunks)
+
+        soup = BeautifulSoup(content, "html.parser")
         for tag in soup(["script", "style", "nav", "header", "footer",
                           "form", "noscript"]):
             tag.decompose()
