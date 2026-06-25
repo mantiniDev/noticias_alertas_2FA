@@ -298,7 +298,8 @@ TERMOS_ESPECIFICOS = [
     '"Release Notes"', '"Hotfix"', '"Depreciação de API"', '"Breaking Changes"', '"Vulnerabilidade de Segurança"',
     '"Patch de Correção"', '"Mudança de DNS"', '"Certificado SSL/TLS"', '"CDN"', '"Data Center"',
     '"Migração para Nuvem"', '"AWS"', '"Azure"', '"Comunicado de TI"', '"Edital de Licitação de Tecnologia"',
-    '"Ordem de Serviço SETIC"', 
+    '"Ordem de Serviço SETIC"',
+    '"unificação de sistemas"', '"unificação na pesquisa processual"', '"pesquisa processual unificada"',
 ]
 
 TERMOS_FORTES_TI = [
@@ -349,7 +350,7 @@ TERMOS_BLOQUEADOS = [
     # Substituído por frases compostas específicas:
     "acordo de cooperação técnica", "acordo trabalhista", "acordo coletivo",
     "conciliação", "mediação", "audiência de custódia", "habeas data",
-    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa", "consulta de processos", "consulta processual", "certidão de objeto e pé", "certidão de inteiro teor", "certidão de antecedentes criminais", "certidão de distribuição", "certidão de protesto", "consulta de processos", "consulta processual", "jurisprudencia", "acórdão", "ementa",
+    "mandado de segurança", "habeas corpus", "ação civil pública", "ação popular", "ação de improbidade administrativa", "consulta de processos", "consulta processual", "certidão de objeto e pé", "certidão de inteiro teor", "certidão de antecedentes criminais", "certidão de distribuição", "certidão de protesto", "consulta de processos", "consulta processual", "acórdão", "ementa",
     
     # 4. Barreiras contra Eleições
     "local de votação", "seções eleitorais", "mesária", "janela partidária", "título de eleitor", "eleições",
