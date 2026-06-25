@@ -21,8 +21,10 @@ Integração:
   - Ambas retornam listas no mesmo formato base, prontas para main.py.
 """
 
+import ipaddress
 import logging
 import re
+import socket
 import time
 import warnings
 from datetime import datetime, timezone, timedelta
@@ -2396,6 +2398,33 @@ def fetch_page(fonte: dict):
 # Fase 4 — leitura do conteúdo completo do artigo
 # ---------------------------------------------------------------------------
 
+_ESQUEMAS_PERMITIDOS = {"http", "https"}
+
+
+def _url_segura(url: str) -> bool:
+    """Bloqueia URLs que apontam para endereços internos/privados (SSRF).
+
+    Verifica esquema (apenas http/https) e resolve o hostname para garantir
+    que o IP de destino não é loopback, privado (RFC 1918) ou link-local
+    (ex: 169.254.169.254 — metadata endpoint de cloud).
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme not in _ESQUEMAS_PERMITIDOS:
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            log.warning("URL bloqueada por segurança (IP interno): %s → %s", url, ip)
+            return False
+        return True
+    except Exception:
+        return False
+
+
 def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
     """Busca o texto principal de um artigo individual para avaliação aprofundada.
 
@@ -2404,8 +2433,10 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
     navegação/rodapé e retorna até max_chars caracteres do corpo principal —
     suficiente para o filtro detectar termos que não aparecem na página de listagem.
 
-    Retorna string vazia em caso de erro, timeout ou resposta não-HTML.
+    Retorna string vazia em caso de erro, timeout, resposta não-HTML ou URL interna.
     """
+    if not _url_segura(url):
+        return ""
     try:
         resp = requests.get(url, headers=HEADERS, timeout=10, verify=True)
         resp.raise_for_status()
