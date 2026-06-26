@@ -2421,7 +2421,16 @@ def _url_segura(url: str) -> bool:
         hostname = parsed.hostname
         if not hostname or len(hostname) > 253:
             return False
-        ip = ipaddress.ip_address(socket.gethostbyname(hostname))
+        # Resolve com timeout de 3 s em thread dedicada (socket.gethostbyname é síncrono
+        # e sem timeout nativo — poderia travar threads do pool em DNS lento/instável)
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
+        with ThreadPoolExecutor(max_workers=1) as _ex:
+            try:
+                ip_str = _ex.submit(socket.gethostbyname, hostname).result(timeout=3)
+            except FuturesTimeout:
+                log.warning("DNS timeout para %s", hostname)
+                return False
+        ip = ipaddress.ip_address(ip_str)
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
             log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
             return False
@@ -2442,17 +2451,27 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
     if not _url_segura(url):
         return ""
     try:
+        from urllib.parse import urljoin
         session = requests.Session()
-        session.max_redirects = _MAX_REDIRECTS
-        resp = session.get(
-            url, headers=HEADERS, timeout=10, verify=True,
-            stream=True, allow_redirects=True,
-        )
-        resp.raise_for_status()
+        current_url = url
 
-        # Revalida URL final após redirects (previne redirect para IP interno)
-        if resp.url != url and not _url_segura(resp.url):
-            return ""
+        # Segue redirects manualmente validando cada hop (previne SSRF via redirect)
+        for _ in range(_MAX_REDIRECTS + 1):
+            resp = session.get(
+                current_url, headers=HEADERS, timeout=10, verify=True,
+                stream=True, allow_redirects=False,
+            )
+            if resp.is_redirect:
+                next_url = urljoin(current_url, resp.headers.get("Location", ""))
+                if not _url_segura(next_url):
+                    return ""
+                current_url = next_url
+                continue
+            break
+        else:
+            return ""  # excedeu _MAX_REDIRECTS
+
+        resp.raise_for_status()
 
         content_type = resp.headers.get("Content-Type", "")
         if "html" not in content_type and "text" not in content_type:
@@ -3163,13 +3182,13 @@ def buscar_noticias_direto(brutas: list | None = None) -> list:
                 noticia_bruta["resumo"],
             )
 
-            # Busca conteúdo do artigo para todos os itens (enriquece brutas para Sheets)
-            conteudo = buscar_conteudo_artigo(link)
-            if conteudo:
-                if bruta_entry is not None:
-                    bruta_entry["conteudo_artigo"] = conteudo
-                # Fase 4 — reavalia apenas quando título+resumo não bastaram
-                if status == "irrelevante" and motivo == "Sem Termos TI":
+            # Fase 4 — busca artigo apenas quando título+resumo não bastaram para o filtro
+            # O enriquecimento de todos os itens em brutas é feito em paralelo em main.py
+            if status == "irrelevante" and motivo == "Sem Termos TI":
+                conteudo = buscar_conteudo_artigo(link)
+                if conteudo:
+                    if bruta_entry is not None:
+                        bruta_entry["conteudo_artigo"] = conteudo
                     s2, m2, p2, t2 = avaliar_noticia(noticia_bruta["titulo"], conteudo)
                     if s2 == "novo":
                         status, motivo, palavra, termo = s2, m2 + " (Conteúdo Artigo)", p2, t2
@@ -3278,12 +3297,9 @@ def buscar_noticias_fontes(brutas: list | None = None) -> dict[str, list]:
             titulo_chave = normalizar_titulo_chave(noticia["titulo"])
 
             # Coleta bruta para Sheets (antes do filtro)
+            # O enriquecimento com conteudo_artigo é feito em paralelo em main.py
             if brutas is not None:
-                bruta_entry_f3 = {**noticia, 'origem': 'Fontes', 'termo_buscado': ''}
-                brutas.append(bruta_entry_f3)
-                conteudo_f3 = buscar_conteudo_artigo(link)
-                if conteudo_f3:
-                    bruta_entry_f3['conteudo_artigo'] = conteudo_f3
+                brutas.append({**noticia, 'origem': 'Fontes', 'termo_buscado': ''})
 
             # Dedup contra o banco (Fase 1/2) — não salva auditoria da Fase 3
             if verificar_status_noticia(link):
