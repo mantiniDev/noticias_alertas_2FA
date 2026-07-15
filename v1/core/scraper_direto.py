@@ -25,6 +25,7 @@ import ipaddress
 import logging
 import re
 import socket
+import threading
 import time
 import warnings
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
@@ -2408,45 +2409,76 @@ _ESQUEMAS_PERMITIDOS = {"http", "https"}
 _MAX_REDIRECTS     = 3
 _MAX_RESPONSE_BYTES = 500_000   # 500 KB — suficiente para qualquer artigo
 
-# Pool compartilhado para resolução DNS com timeout (evita thread churn por chamada
-# e o bloqueio causado pelo shutdown(wait=True) do contexto "with ThreadPoolExecutor").
-_DNS_POOL = ThreadPoolExecutor(max_workers=2)
+# Pool compartilhado para resolução DNS com timeout.
+# 10 workers — mesma cardinalidade dos workers de enriquecimento em main.py,
+# evitando que o pool vire gargalo sob os 10 workers concorrentes da Fase 4.
+_DNS_POOL = ThreadPoolExecutor(max_workers=10)
+
+# Thread-local para pinagem de DNS: armazena o IP já validado por thread,
+# impedindo que o urllib3 faça uma segunda resolução interna (elimina TOCTOU).
+_tls_dns = threading.local()
+_orig_getaddrinfo = socket.getaddrinfo
+
+
+def _getaddrinfo_pinned(host, port, *args, **kwargs):
+    """Substitui getaddrinfo para usar IP pré-validado quando disponível."""
+    pins = getattr(_tls_dns, "pins", None)
+    if pins and host in pins:
+        ip = pins[host]
+        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
+        sockaddr = (ip, port, 0, 0) if family == socket.AF_INET6 else (ip, port)
+        return [(family, socket.SOCK_STREAM, 0, "", sockaddr)]
+    return _orig_getaddrinfo(host, port, *args, **kwargs)
+
+
+socket.getaddrinfo = _getaddrinfo_pinned
 
 
 class _SSRFBlockingAdapter(HTTPAdapter):
-    """HTTPAdapter que revalida o IP no momento da conexão, eliminando a janela TOCTOU.
-
-    Sem isso, um servidor DNS com TTL=0 poderia retornar IP público na validação
-    prévia e IP interno (ex.: 169.254.169.254) na conexão real (DNS rebinding).
+    """HTTPAdapter que revalida todos os IPs (IPv4 + IPv6) no momento da conexão
+    e pina o resultado no thread-local, impedindo a segunda resolução do urllib3
+    e eliminando completamente a janela TOCTOU do DNS rebinding.
     """
 
     def send(self, request, *args, **kwargs):
         from urllib.parse import urlparse as _up
         hostname = _up(request.url).hostname or ""
         if hostname:
-            fut = _DNS_POOL.submit(socket.gethostbyname, hostname)
+            fut = _DNS_POOL.submit(socket.getaddrinfo, hostname, None)
             try:
-                ip_str = fut.result(timeout=3)
+                addrs = fut.result(timeout=3)
             except (FuturesTimeout, Exception) as exc:
                 raise requests.exceptions.ConnectionError(
                     f"SSRF: DNS falhou para {hostname}: {exc}"
                 ) from exc
-            ip = ipaddress.ip_address(ip_str)
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                raise requests.exceptions.ConnectionError(
-                    f"SSRF bloqueado (IP interno na conexão): {hostname} → {ip_str}"
-                )
+            for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
+                ip = ipaddress.ip_address(sockaddr[0])
+                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                    raise requests.exceptions.ConnectionError(
+                        f"SSRF bloqueado (IP interno na conexão): {hostname} → {ip}"
+                    )
+            # Pina o primeiro IP validado no thread-local — urllib3 usará
+            # este resultado via _getaddrinfo_pinned, sem segunda resolução.
+            pinned_ip = str(addrs[0][4][0])
+            if not hasattr(_tls_dns, "pins"):
+                _tls_dns.pins = {}
+            _tls_dns.pins[hostname] = pinned_ip
+            try:
+                return super().send(request, *args, **kwargs)
+            finally:
+                _tls_dns.pins.pop(hostname, None)
         return super().send(request, *args, **kwargs)
 
 
 def _url_segura(url: str) -> bool:
-    """Valida URL contra SSRF: esquema, normalização e IP de destino.
+    """Valida URL contra SSRF: esquema, normalização e IP de destino (IPv4 + IPv6).
 
     Bloqueia:
     - Esquemas não-HTTP/S (file://, ftp://, etc.)
     - Hostnames vazios ou malformados
     - IPs privados (RFC 1918), loopback (127.x), link-local (169.254.x),
       reservados — inclui endpoint de metadados de cloud (169.254.169.254)
+    - Endereços IPv6 internos (::1, fc00::/7, fe80::/10, etc.)
     """
     try:
         from urllib.parse import urlparse
@@ -2457,18 +2489,18 @@ def _url_segura(url: str) -> bool:
         hostname = parsed.hostname
         if not hostname or len(hostname) > 253:
             return False
-        # Resolve com timeout de 3 s via pool global (socket.gethostbyname é síncrono
-        # e sem timeout nativo; pool global evita churn e o shutdown(wait=True) do "with").
-        fut = _DNS_POOL.submit(socket.gethostbyname, hostname)
+        # getaddrinfo retorna IPv4 e IPv6 — valida todos os endereços resolvidos.
+        fut = _DNS_POOL.submit(socket.getaddrinfo, hostname, None)
         try:
-            ip_str = fut.result(timeout=3)
+            addrs = fut.result(timeout=3)
         except FuturesTimeout:
             log.warning("DNS timeout para %s", hostname)
             return False
-        ip = ipaddress.ip_address(ip_str)
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-            log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
-            return False
+        for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
+                return False
         return True
     except Exception:
         return False
@@ -2478,7 +2510,8 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
     """Busca o texto principal de um artigo para avaliação aprofundada.
 
     Segurança aplicada:
-    - _url_segura() bloqueia IPs internos/privados (SSRF)
+    - _url_segura() bloqueia IPs internos/privados (SSRF, IPv4 + IPv6)
+    - _SSRFBlockingAdapter elimina TOCTOU via pinagem DNS por thread
     - Redirects limitados a _MAX_REDIRECTS; destino final revalidado
     - Leitura limitada a _MAX_RESPONSE_BYTES (500 KB)
     - Retorna '' em caso de erro, timeout, resposta não-HTML ou URL interna
@@ -2487,52 +2520,51 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
         return ""
     try:
         from urllib.parse import urljoin
-        session = requests.Session()
-        # _SSRFBlockingAdapter revalida o IP no momento da conexão (elimina TOCTOU).
-        _adapter = _SSRFBlockingAdapter()
-        session.mount("http://", _adapter)
-        session.mount("https://", _adapter)
-        current_url = url
-        resp = None
+        with requests.Session() as session:
+            _adapter = _SSRFBlockingAdapter()
+            session.mount("http://", _adapter)
+            session.mount("https://", _adapter)
+            current_url = url
+            resp = None
 
-        # Segue redirects manualmente validando cada hop (previne SSRF via redirect)
-        for _ in range(_MAX_REDIRECTS + 1):
-            resp = session.get(
-                current_url, headers=HEADERS, timeout=10, verify=True,
-                stream=True, allow_redirects=False,
-            )
-            if resp.is_redirect:
-                next_url = urljoin(current_url, resp.headers.get("Location", ""))
-                resp.close()   # fecha conexão intermediária antes de sobrescrever
-                resp = None
-                if not _url_segura(next_url):
+            # Segue redirects manualmente validando cada hop (previne SSRF via redirect)
+            for _ in range(_MAX_REDIRECTS + 1):
+                resp = session.get(
+                    current_url, headers=HEADERS, timeout=10, verify=True,
+                    stream=True, allow_redirects=False,
+                )
+                if resp.is_redirect:
+                    next_url = urljoin(current_url, resp.headers.get("Location", ""))
+                    resp.close()   # fecha conexão intermediária antes de sobrescrever
+                    resp = None
+                    if not _url_segura(next_url):
+                        return ""
+                    current_url = next_url
+                    continue
+                break
+            else:
+                if resp is not None:
+                    resp.close()
+                return ""  # excedeu _MAX_REDIRECTS
+
+            try:
+                resp.raise_for_status()
+
+                content_type = resp.headers.get("Content-Type", "")
+                if "html" not in content_type and "text" not in content_type:
                     return ""
-                current_url = next_url
-                continue
-            break
-        else:
-            if resp is not None:
+
+                # Lê até _MAX_RESPONSE_BYTES para evitar respostas gigantes
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in resp.iter_content(chunk_size=8192):
+                    chunks.append(chunk)
+                    total += len(chunk)
+                    if total >= _MAX_RESPONSE_BYTES:
+                        break
+                content = b"".join(chunks)
+            finally:
                 resp.close()
-            return ""  # excedeu _MAX_REDIRECTS
-
-        try:
-            resp.raise_for_status()
-
-            content_type = resp.headers.get("Content-Type", "")
-            if "html" not in content_type and "text" not in content_type:
-                return ""
-
-            # Lê até _MAX_RESPONSE_BYTES para evitar respostas gigantes
-            chunks: list[bytes] = []
-            total = 0
-            for chunk in resp.iter_content(chunk_size=8192):
-                chunks.append(chunk)
-                total += len(chunk)
-                if total >= _MAX_RESPONSE_BYTES:
-                    break
-            content = b"".join(chunks)
-        finally:
-            resp.close()
 
         soup = BeautifulSoup(content, "html.parser")
         for tag in soup(["script", "style", "nav", "header", "footer",
