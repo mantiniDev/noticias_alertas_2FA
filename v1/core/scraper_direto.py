@@ -27,12 +27,14 @@ import re
 import socket
 import time
 import warnings
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
 import requests
 import urllib3
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 
 from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS, DIAS_JANELA
 from core.filter import avaliar_noticia, normalizar_titulo_chave
@@ -2406,6 +2408,36 @@ _ESQUEMAS_PERMITIDOS = {"http", "https"}
 _MAX_REDIRECTS     = 3
 _MAX_RESPONSE_BYTES = 500_000   # 500 KB — suficiente para qualquer artigo
 
+# Pool compartilhado para resolução DNS com timeout (evita thread churn por chamada
+# e o bloqueio causado pelo shutdown(wait=True) do contexto "with ThreadPoolExecutor").
+_DNS_POOL = ThreadPoolExecutor(max_workers=2)
+
+
+class _SSRFBlockingAdapter(HTTPAdapter):
+    """HTTPAdapter que revalida o IP no momento da conexão, eliminando a janela TOCTOU.
+
+    Sem isso, um servidor DNS com TTL=0 poderia retornar IP público na validação
+    prévia e IP interno (ex.: 169.254.169.254) na conexão real (DNS rebinding).
+    """
+
+    def send(self, request, *args, **kwargs):
+        from urllib.parse import urlparse as _up
+        hostname = _up(request.url).hostname or ""
+        if hostname:
+            fut = _DNS_POOL.submit(socket.gethostbyname, hostname)
+            try:
+                ip_str = fut.result(timeout=3)
+            except (FuturesTimeout, Exception) as exc:
+                raise requests.exceptions.ConnectionError(
+                    f"SSRF: DNS falhou para {hostname}: {exc}"
+                ) from exc
+            ip = ipaddress.ip_address(ip_str)
+            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+                raise requests.exceptions.ConnectionError(
+                    f"SSRF bloqueado (IP interno na conexão): {hostname} → {ip_str}"
+                )
+        return super().send(request, *args, **kwargs)
+
 
 def _url_segura(url: str) -> bool:
     """Valida URL contra SSRF: esquema, normalização e IP de destino.
@@ -2425,15 +2457,14 @@ def _url_segura(url: str) -> bool:
         hostname = parsed.hostname
         if not hostname or len(hostname) > 253:
             return False
-        # Resolve com timeout de 3 s em thread dedicada (socket.gethostbyname é síncrono
-        # e sem timeout nativo — poderia travar threads do pool em DNS lento/instável)
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
-        with ThreadPoolExecutor(max_workers=1) as _ex:
-            try:
-                ip_str = _ex.submit(socket.gethostbyname, hostname).result(timeout=3)
-            except FuturesTimeout:
-                log.warning("DNS timeout para %s", hostname)
-                return False
+        # Resolve com timeout de 3 s via pool global (socket.gethostbyname é síncrono
+        # e sem timeout nativo; pool global evita churn e o shutdown(wait=True) do "with").
+        fut = _DNS_POOL.submit(socket.gethostbyname, hostname)
+        try:
+            ip_str = fut.result(timeout=3)
+        except FuturesTimeout:
+            log.warning("DNS timeout para %s", hostname)
+            return False
         ip = ipaddress.ip_address(ip_str)
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
             log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
@@ -2457,7 +2488,12 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
     try:
         from urllib.parse import urljoin
         session = requests.Session()
+        # _SSRFBlockingAdapter revalida o IP no momento da conexão (elimina TOCTOU).
+        _adapter = _SSRFBlockingAdapter()
+        session.mount("http://", _adapter)
+        session.mount("https://", _adapter)
         current_url = url
+        resp = None
 
         # Segue redirects manualmente validando cada hop (previne SSRF via redirect)
         for _ in range(_MAX_REDIRECTS + 1):
@@ -2467,29 +2503,36 @@ def buscar_conteudo_artigo(url: str, max_chars: int = 600) -> str:
             )
             if resp.is_redirect:
                 next_url = urljoin(current_url, resp.headers.get("Location", ""))
+                resp.close()   # fecha conexão intermediária antes de sobrescrever
+                resp = None
                 if not _url_segura(next_url):
                     return ""
                 current_url = next_url
                 continue
             break
         else:
+            if resp is not None:
+                resp.close()
             return ""  # excedeu _MAX_REDIRECTS
 
-        resp.raise_for_status()
+        try:
+            resp.raise_for_status()
 
-        content_type = resp.headers.get("Content-Type", "")
-        if "html" not in content_type and "text" not in content_type:
-            return ""
+            content_type = resp.headers.get("Content-Type", "")
+            if "html" not in content_type and "text" not in content_type:
+                return ""
 
-        # Lê até _MAX_RESPONSE_BYTES para evitar respostas gigantes
-        chunks: list[bytes] = []
-        total = 0
-        for chunk in resp.iter_content(chunk_size=8192):
-            chunks.append(chunk)
-            total += len(chunk)
-            if total >= _MAX_RESPONSE_BYTES:
-                break
-        content = b"".join(chunks)
+            # Lê até _MAX_RESPONSE_BYTES para evitar respostas gigantes
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in resp.iter_content(chunk_size=8192):
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= _MAX_RESPONSE_BYTES:
+                    break
+            content = b"".join(chunks)
+        finally:
+            resp.close()
 
         soup = BeautifulSoup(content, "html.parser")
         for tag in soup(["script", "style", "nav", "header", "footer",
