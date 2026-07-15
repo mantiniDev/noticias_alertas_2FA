@@ -779,6 +779,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjgo.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -876,6 +877,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.tjpb.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -1263,7 +1265,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT15 - Notícias",
-                "url": "https://trt15.jus.br/noticia/",
+                "url": "https://trt15.jus.br/noticias/maisnoticias",
                 "parser": "generic_news",
                 "base_url": "https://trt15.jus.br",
                 "tipo": "Notícias",
@@ -1290,6 +1292,7 @@ FONTES: list[dict] = [
                 "parser": "generic_news",
                 "base_url": "https://www.trt5.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
@@ -1579,7 +1582,7 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT19 - Notícias",
-                "url": "https://site.trt19.jus.br/portalTRT19/noticiafoco/",
+                "url": "https://site.trt19.jus.br/pesquisa-de-noticias",
                 "parser": "generic_news",
                 "base_url": "https://site.trt19.jus.br",
                 "tipo": "Notícias",
@@ -1648,10 +1651,11 @@ FONTES: list[dict] = [
         "noticias": [
             {
                 "nome": "TRT22 - Notícias",
-                "url": "https://www.trt22.jus.br/noticia",
+                "url": "https://www.trt22.jus.br/noticias",
                 "parser": "generic_news",
                 "base_url": "https://www.trt22.jus.br",
                 "tipo": "Notícias",
+                "force_playwright": True,
             },
         ],
     },
