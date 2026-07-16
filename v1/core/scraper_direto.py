@@ -2443,35 +2443,55 @@ def _ssrf_validate_host(hostname: str) -> str:
     return str(addrs[0][4][0])
 
 
+# Chaves que o urllib3 injeta em request_context mas que pool_cls recebe como
+# args posicionais — devem ser removidas antes de repassar como **kwargs.
+_POOL_CONTEXT_KEYS = frozenset(("scheme", "host", "port"))
+# Chaves SSL válidas apenas para HTTPS; removidas ao criar pool HTTP.
+_SSL_CONTEXT_KEYS = frozenset((
+    "key_file", "cert_file", "cert_reqs", "key_password",
+    "ca_certs", "ssl_version", "ssl_minimum_version", "ssl_maximum_version",
+    "ca_cert_dir", "assert_hostname", "assert_fingerprint", "ca_cert_data",
+))
+
+
 class _SSRFHTTPConnection(_UL3HTTPConn):
-    """Conexão HTTP que usa o IP pré-validado do thread-local, sem nova resolução DNS."""
+    """Conexão HTTP que usa o IP pré-validado do thread-local.
+
+    Fail-closed: sem pin no thread-local a conexão é bloqueada, evitando
+    bypass silencioso caso o adapter seja reutilizado fora do fluxo protegido.
+    """
     def connect(self):
         pinned = getattr(_SSRF_TLS, "pins", {}).get(self.host)
-        if pinned:
-            real_host, self.host = self.host, pinned
-            try:
-                super().connect()
-            finally:
-                self.host = real_host
-        else:
+        if not pinned:
+            raise ConnectionError(
+                f"SSRF: conexão bloqueada — sem pin de segurança para {self.host!r}"
+            )
+        real_host, self.host = self.host, pinned
+        try:
             super().connect()
+        finally:
+            self.host = real_host
 
 
 class _SSRFHTTPSConnection(_UL3HTTPSConn):
-    """Conexão HTTPS que usa o IP pré-validado; assert_hostname garante SNI/cert corretos."""
+    """Conexão HTTPS que usa o IP pré-validado; assert_hostname garante SNI/cert corretos.
+
+    Fail-closed: sem pin no thread-local a conexão é bloqueada.
+    """
     def connect(self):
         pinned = getattr(_SSRF_TLS, "pins", {}).get(self.host)
-        if pinned:
-            real_host = self.host
-            self.host = pinned
-            if not self.assert_hostname:
-                self.assert_hostname = real_host
-            try:
-                super().connect()
-            finally:
-                self.host = real_host
-        else:
+        if not pinned:
+            raise ConnectionError(
+                f"SSRF: conexão bloqueada — sem pin de segurança para {self.host!r}"
+            )
+        real_host = self.host
+        self.host = pinned
+        if not self.assert_hostname:
+            self.assert_hostname = real_host
+        try:
             super().connect()
+        finally:
+            self.host = real_host
 
 
 class _SSRFHTTPConnectionPool(_UL3HTTPPool):
@@ -2488,7 +2508,13 @@ class _SSRFPoolManager(_UL3PoolManager):
         pool_cls = (
             _SSRFHTTPConnectionPool if scheme == "http" else _SSRFHTTPSConnectionPool
         )
-        return pool_cls(host, port, **(request_context or {}))
+        # urllib3 injeta scheme/host/port em request_context mas pool_cls os recebe
+        # como args posicionais — repassar sem removê-los causa TypeError.
+        ctx = {k: v for k, v in (request_context or {}).items()
+               if k not in _POOL_CONTEXT_KEYS}
+        if scheme == "http":
+            ctx = {k: v for k, v in ctx.items() if k not in _SSL_CONTEXT_KEYS}
+        return pool_cls(host, port, **ctx)
 
 
 class _SSRFBlockingAdapter(HTTPAdapter):
