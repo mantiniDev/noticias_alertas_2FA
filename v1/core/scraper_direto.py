@@ -2431,12 +2431,14 @@ def _ssrf_validate_host(hostname: str) -> str:
     try:
         addrs = fut.result(timeout=3)
     except (FuturesTimeout, Exception) as exc:
+        log.warning("SSRF: DNS timeout/falha para %s: %s", hostname, exc)
         raise requests.exceptions.ConnectionError(
             f"SSRF: DNS falhou para {hostname}: {exc}"
         ) from exc
     for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
         ip = ipaddress.ip_address(sockaddr[0])
         if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            log.warning("SSRF bloqueado: %s → %s (IP interno)", hostname, ip)
             raise requests.exceptions.ConnectionError(
                 f"SSRF bloqueado: {hostname} → {ip}"
             )
@@ -2488,6 +2490,7 @@ class _SSRFHTTPSConnection(_UL3HTTPSConn):
         self.host = pinned
         if not self.assert_hostname:
             self.assert_hostname = real_host
+        self.server_hostname = real_host
         try:
             super().connect()
         finally:
@@ -2564,7 +2567,8 @@ def _url_segura(url: str) -> bool:
             return False
         _ssrf_validate_host(hostname)
         return True
-    except Exception:
+    except Exception as exc:
+        log.warning("SSRF: URL rejeitada %s: %s", url, exc)
         return False
 
 
