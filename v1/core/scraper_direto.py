@@ -36,6 +36,9 @@ import requests
 import urllib3
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPConnection as _UL3HTTPConn, HTTPSConnection as _UL3HTTPSConn
+from urllib3.connectionpool import HTTPConnectionPool as _UL3HTTPPool, HTTPSConnectionPool as _UL3HTTPSPool
+from urllib3 import PoolManager as _UL3PoolManager
 
 from config.settings import REQUEST_TIMEOUT, PLAYWRIGHT_TIMEOUT, MAX_ITEMS, DIAS_JANELA
 from core.filter import avaliar_noticia, normalizar_titulo_chave
@@ -2410,76 +2413,120 @@ _MAX_REDIRECTS     = 3
 _MAX_RESPONSE_BYTES = 500_000   # 500 KB — suficiente para qualquer artigo
 
 # Pool compartilhado para resolução DNS com timeout.
-# 10 workers — mesma cardinalidade dos workers de enriquecimento em main.py,
-# evitando que o pool vire gargalo sob os 10 workers concorrentes da Fase 4.
+# 10 workers — mesma cardinalidade dos workers de enriquecimento em main.py.
 _DNS_POOL = ThreadPoolExecutor(max_workers=10)
 
-# Thread-local para pinagem de DNS: armazena o IP já validado por thread,
-# impedindo que o urllib3 faça uma segunda resolução interna (elimina TOCTOU).
-_tls_dns = threading.local()
-_orig_getaddrinfo = socket.getaddrinfo
+# Thread-local que armazena o IP validado por thread durante o send() do adapter.
+# Escopo limitado às classes abaixo — sem modificar símbolos globais do processo.
+_SSRF_TLS = threading.local()
 
 
-def _getaddrinfo_pinned(host, port, *args, **kwargs):
-    """Substitui getaddrinfo para usar IP pré-validado quando disponível."""
-    pins = getattr(_tls_dns, "pins", None)
-    if pins and host in pins:
-        ip = pins[host]
-        family = socket.AF_INET6 if ":" in ip else socket.AF_INET
-        sockaddr = (ip, port, 0, 0) if family == socket.AF_INET6 else (ip, port)
-        return [(family, socket.SOCK_STREAM, 0, "", sockaddr)]
-    return _orig_getaddrinfo(host, port, *args, **kwargs)
+def _ssrf_validate_host(hostname: str) -> str:
+    """Resolve hostname via getaddrinfo (A + AAAA) e valida todos os IPs retornados.
+
+    Raises requests.exceptions.ConnectionError se qualquer endereço for interno/privado
+    ou se DNS expirar/falhar. Retorna o primeiro IP válido como string.
+    """
+    fut = _DNS_POOL.submit(socket.getaddrinfo, hostname, None)
+    try:
+        addrs = fut.result(timeout=3)
+    except (FuturesTimeout, Exception) as exc:
+        raise requests.exceptions.ConnectionError(
+            f"SSRF: DNS falhou para {hostname}: {exc}"
+        ) from exc
+    for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
+        ip = ipaddress.ip_address(sockaddr[0])
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
+            raise requests.exceptions.ConnectionError(
+                f"SSRF bloqueado: {hostname} → {ip}"
+            )
+    return str(addrs[0][4][0])
 
 
-socket.getaddrinfo = _getaddrinfo_pinned
+class _SSRFHTTPConnection(_UL3HTTPConn):
+    """Conexão HTTP que usa o IP pré-validado do thread-local, sem nova resolução DNS."""
+    def connect(self):
+        pinned = getattr(_SSRF_TLS, "pins", {}).get(self.host)
+        if pinned:
+            real_host, self.host = self.host, pinned
+            try:
+                super().connect()
+            finally:
+                self.host = real_host
+        else:
+            super().connect()
+
+
+class _SSRFHTTPSConnection(_UL3HTTPSConn):
+    """Conexão HTTPS que usa o IP pré-validado; assert_hostname garante SNI/cert corretos."""
+    def connect(self):
+        pinned = getattr(_SSRF_TLS, "pins", {}).get(self.host)
+        if pinned:
+            real_host = self.host
+            self.host = pinned
+            if not self.assert_hostname:
+                self.assert_hostname = real_host
+            try:
+                super().connect()
+            finally:
+                self.host = real_host
+        else:
+            super().connect()
+
+
+class _SSRFHTTPConnectionPool(_UL3HTTPPool):
+    ConnectionCls = _SSRFHTTPConnection
+
+
+class _SSRFHTTPSConnectionPool(_UL3HTTPSPool):
+    ConnectionCls = _SSRFHTTPSConnection
+
+
+class _SSRFPoolManager(_UL3PoolManager):
+    """PoolManager com pools SSRF-aware — sem alterar símbolos globais do processo."""
+    def _new_pool(self, scheme, host, port, request_context=None):
+        pool_cls = (
+            _SSRFHTTPConnectionPool if scheme == "http" else _SSRFHTTPSConnectionPool
+        )
+        return pool_cls(host, port, **(request_context or {}))
 
 
 class _SSRFBlockingAdapter(HTTPAdapter):
-    """HTTPAdapter que revalida todos os IPs (IPv4 + IPv6) no momento da conexão
-    e pina o resultado no thread-local, impedindo a segunda resolução do urllib3
-    e eliminando completamente a janela TOCTOU do DNS rebinding.
+    """HTTPAdapter com defesa SSRF escopo ao pool — sem monkey-patch de socket.getaddrinfo.
+
+    Fluxo por requisição:
+    1. send() valida todos os IPs (A + AAAA) via _ssrf_validate_host()
+    2. IP validado é armazenado em _SSRF_TLS.pins[hostname] (thread-local, limpo em finally)
+    3. _SSRFHTTP(S)Connection.connect() usa o IP diretamente — sem nova resolução DNS
+       pelo urllib3 → janela TOCTOU eliminada dentro do escopo do adapter
+    4. HTTPS: assert_hostname preserva o hostname original para TLS SNI e cert validation
     """
+
+    def init_poolmanager(self, num_pools, maxsize, block=False, **connection_kw):
+        self.poolmanager = _SSRFPoolManager(
+            num_pools=num_pools,
+            maxsize=maxsize,
+            block=block,
+            **connection_kw,
+        )
 
     def send(self, request, *args, **kwargs):
         from urllib.parse import urlparse as _up
         hostname = _up(request.url).hostname or ""
         if hostname:
-            fut = _DNS_POOL.submit(socket.getaddrinfo, hostname, None)
-            try:
-                addrs = fut.result(timeout=3)
-            except (FuturesTimeout, Exception) as exc:
-                raise requests.exceptions.ConnectionError(
-                    f"SSRF: DNS falhou para {hostname}: {exc}"
-                ) from exc
-            for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
-                ip = ipaddress.ip_address(sockaddr[0])
-                if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                    raise requests.exceptions.ConnectionError(
-                        f"SSRF bloqueado (IP interno na conexão): {hostname} → {ip}"
-                    )
-            # Pina o primeiro IP validado no thread-local — urllib3 usará
-            # este resultado via _getaddrinfo_pinned, sem segunda resolução.
-            pinned_ip = str(addrs[0][4][0])
-            if not hasattr(_tls_dns, "pins"):
-                _tls_dns.pins = {}
-            _tls_dns.pins[hostname] = pinned_ip
+            pinned_ip = _ssrf_validate_host(hostname)
+            if not hasattr(_SSRF_TLS, "pins"):
+                _SSRF_TLS.pins = {}
+            _SSRF_TLS.pins[hostname] = pinned_ip
             try:
                 return super().send(request, *args, **kwargs)
             finally:
-                _tls_dns.pins.pop(hostname, None)
+                _SSRF_TLS.pins.pop(hostname, None)
         return super().send(request, *args, **kwargs)
 
 
 def _url_segura(url: str) -> bool:
-    """Valida URL contra SSRF: esquema, normalização e IP de destino (IPv4 + IPv6).
-
-    Bloqueia:
-    - Esquemas não-HTTP/S (file://, ftp://, etc.)
-    - Hostnames vazios ou malformados
-    - IPs privados (RFC 1918), loopback (127.x), link-local (169.254.x),
-      reservados — inclui endpoint de metadados de cloud (169.254.169.254)
-    - Endereços IPv6 internos (::1, fc00::/7, fe80::/10, etc.)
-    """
+    """Valida URL contra SSRF: esquema, normalização e IP de destino (IPv4 + IPv6)."""
     try:
         from urllib.parse import urlparse
         url = url.strip()
@@ -2489,18 +2536,7 @@ def _url_segura(url: str) -> bool:
         hostname = parsed.hostname
         if not hostname or len(hostname) > 253:
             return False
-        # getaddrinfo retorna IPv4 e IPv6 — valida todos os endereços resolvidos.
-        fut = _DNS_POOL.submit(socket.getaddrinfo, hostname, None)
-        try:
-            addrs = fut.result(timeout=3)
-        except FuturesTimeout:
-            log.warning("DNS timeout para %s", hostname)
-            return False
-        for (_fam, _typ, _proto, _canon, sockaddr) in addrs:
-            ip = ipaddress.ip_address(sockaddr[0])
-            if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved:
-                log.warning("URL bloqueada (IP interno): %s → %s", url, ip)
-                return False
+        _ssrf_validate_host(hostname)
         return True
     except Exception:
         return False
