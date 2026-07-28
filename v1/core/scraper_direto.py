@@ -2468,7 +2468,8 @@ class _SSRFHTTPConnection(_UL3HTTPConn):
             raise ConnectionError(
                 f"SSRF: conexão bloqueada — sem pin de segurança para {self.host!r}"
             )
-        real_host, self.host = self.host, pinned
+        real_host = self.host
+        self.host = pinned
         try:
             super().connect()
         finally:
@@ -2476,7 +2477,8 @@ class _SSRFHTTPConnection(_UL3HTTPConn):
 
 
 class _SSRFHTTPSConnection(_UL3HTTPSConn):
-    """Conexão HTTPS que usa o IP pré-validado; assert_hostname garante SNI/cert corretos.
+    """Conexão HTTPS que usa o IP pré-validado; assert_hostname e server_hostname
+    garantem SNI/cert corretos mesmo com self.host apontando para o IP pinado.
 
     Fail-closed: sem pin no thread-local a conexão é bloqueada.
     """
@@ -2487,6 +2489,8 @@ class _SSRFHTTPSConnection(_UL3HTTPSConn):
                 f"SSRF: conexão bloqueada — sem pin de segurança para {self.host!r}"
             )
         real_host = self.host
+        orig_assert_hostname = self.assert_hostname
+        orig_server_hostname = getattr(self, "server_hostname", None)
         self.host = pinned
         if not self.assert_hostname:
             self.assert_hostname = real_host
@@ -2495,6 +2499,8 @@ class _SSRFHTTPSConnection(_UL3HTTPSConn):
             super().connect()
         finally:
             self.host = real_host
+            self.assert_hostname = orig_assert_hostname
+            self.server_hostname = orig_server_hostname
 
 
 class _SSRFHTTPConnectionPool(_UL3HTTPPool):
