@@ -81,8 +81,8 @@ def _montar_link(url: Any, texto: str) -> str:
 def _build_message(itens: list[dict]) -> str:
     hoje = datetime.now().strftime("%d/%m/%Y")
 
-    relevantes = sum(1 for i in itens if i.get("classificacao") == "RELEVANTE")
-    talvez = sum(1 for i in itens if i.get("classificacao") == "TALVEZ")
+    relevantes = sum(1 for i in itens if str(i.get("classificacao", "")).strip().upper() == "RELEVANTE")
+    talvez = sum(1 for i in itens if str(i.get("classificacao", "")).strip().upper() == "TALVEZ")
     total = len(itens)
 
     texto = (
@@ -92,7 +92,7 @@ def _build_message(itens: list[dict]) -> str:
     )
 
     for item in itens:
-        classificacao = item.get("classificacao", "")
+        classificacao = str(item.get("classificacao", "")).strip().upper()
         emoji = ":large_green_circle:" if classificacao == "RELEVANTE" else ":large_yellow_circle:"
 
         titulo = _limpar_texto(item.get("titulo", ""))

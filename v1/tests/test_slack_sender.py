@@ -150,6 +150,27 @@ class TestBuildMessage:
         msg = _build_message([_item()])
         assert "https://tjsp.jus.br/noticia" in msg
 
+    def test_classificacao_minuscula_conta_corretamente(self):
+        itens = [_item("relevante"), _item("talvez")]
+        msg = _build_message(itens)
+        assert "Relevantes: 1" in msg
+        assert "Talvez: 1" in msg
+
+    def test_classificacao_mista_emoji_verde(self):
+        assert ":large_green_circle:" in _build_message([_item("Relevante")])
+
+    def test_classificacao_mista_emoji_amarelo(self):
+        assert ":large_yellow_circle:" in _build_message([_item("Talvez")])
+
+    def test_classificacao_minuscula_acao_sugerida(self):
+        msg = _build_message([_item("relevante")])
+        assert "crawler" in msg
+
+    def test_classificacao_com_espacos_conta_corretamente(self):
+        msg = _build_message([_item(" RELEVANTE "), _item(" TALVEZ ")])
+        assert "Relevantes: 1" in msg
+        assert "Talvez: 1" in msg
+
 
 # ── send_alerts ───────────────────────────────────────────────────────────────
 
