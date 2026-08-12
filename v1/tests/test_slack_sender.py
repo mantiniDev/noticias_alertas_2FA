@@ -185,6 +185,11 @@ class TestSendAlerts:
             send_alerts([_item("IRRELEVANTE")])
             mock_wh.assert_not_called()
 
+    def test_classificacao_none_nao_levanta_erro(self):
+        with patch("core.slack_sender._send_webhook") as mock_wh:
+            send_alerts([_item(classificacao=None)])
+            mock_wh.assert_not_called()
+
     def test_sem_justificativa_filtrado(self):
         with patch("core.slack_sender._send_webhook") as mock_wh:
             send_alerts([_item(justificativa="")])
