@@ -436,7 +436,13 @@ FONTES: list[dict] = [
         "nome": "Tribunal de Justiça do Rio Grande do Sul",
         "grupo": "Tribunais-Estaduais",
         "principal": True,
-        "alertas": None,
+        "alertas": {
+            "nome": "TJRS - Certidões de Indisponibilidade",
+            "url": "https://www.tjrs.jus.br/novo/comunicacao/certidoes-indisponibilidade/",
+            "parser": "generic_news",
+            "base_url": "https://www.tjrs.jus.br",
+            "tipo": "Indisponibilidade",
+        },
         "noticias": [
             {
                 "nome": "TJRS - Notícias",
@@ -1222,8 +1228,13 @@ FONTES: list[dict] = [
         "nome": "Tribunal Regional do Trabalho da 3ª Região",
         "grupo": "TRTs",
         "principal": False,
-        # Sem página pública de indisponibilidade encontrada
-        "alertas": None,
+        "alertas": {
+            "nome": "TRT3 - CINDe Certidões de Indisponibilidade",
+            "url": "https://cinde.trt3.jus.br/cinde/certidao/listagem.htm",
+            "parser": "generic_table",
+            "base_url": "https://cinde.trt3.jus.br",
+            "tipo": "Indisponibilidade",
+        },
         "noticias": [
             {
                 "nome": "TRT3 - Notícias Institucionais",
@@ -1396,20 +1407,25 @@ FONTES: list[dict] = [
             },
         ],
     },
-    # TRT10 — sem página pública de indisponibilidade encontrada
     {
         "acronym": "TRT10",
         "nome": "Tribunal Regional do Trabalho da 10ª Região",
         "grupo": "TRTs",
         "principal": False,
-        "alertas": None,
+        "alertas": {
+            "nome": "TRT10 - Períodos de Indisponibilidade PJe",
+            "url": "https://www.trt10.jus.br/servicos/?pagina=pje/indisponibilidade/index.php",
+            "parser": "generic_table",
+            "base_url": "https://www.trt10.jus.br",
+            "tipo": "Indisponibilidade",
+        },
         "noticias": [
             {
                 "nome": "TRT10 - ASCOM Notícias",
                 "url": "https://www.trt10.jus.br/noticias",
                 "parser": "generic_news",
                 "skip": True,
-                "skip_reason": "404 em todas as URLs tentadas — URL correta não identificada",
+                "skip_reason": "404 — notícias não disponíveis via URL direta",
                 "base_url": "https://www.trt10.jus.br",
                 "tipo": "Notícias",
             },
@@ -1584,7 +1600,13 @@ FONTES: list[dict] = [
         "nome": "Tribunal Regional do Trabalho da 19ª Região",
         "grupo": "TRTs",
         "principal": False,
-        "alertas": None,  # site retorna "Erro temporário. Tente novamente." no CI
+        "alertas": {
+            "nome": "TRT19 - Períodos de Indisponibilidade PJe",
+            "url": "https://site.trt19.jus.br/pjePeridosIndisponibilidades",
+            "parser": "generic_table",
+            "base_url": "https://site.trt19.jus.br",
+            "tipo": "Indisponibilidade",
+        },
         "noticias": [
             {
                 "nome": "TRT19 - Notícias",
@@ -1665,13 +1687,20 @@ FONTES: list[dict] = [
             },
         ],
     },
-    # TRT23 — sem página pública de indisponibilidade encontrada
     {
         "acronym": "TRT23",
         "nome": "Tribunal Regional do Trabalho da 23ª Região",
         "grupo": "TRTs",
         "principal": False,
-        "alertas": None,
+        "alertas": {
+            "nome": "TRT23 - Calendário de Indisponibilidade PJe",
+            "url": "https://portal.trt23.jus.br/portal/calendario-de-indisponibilidade-do-pje",
+            "parser": "generic_table",
+            "base_url": "https://portal.trt23.jus.br",
+            "tipo": "Indisponibilidade",
+            "force_playwright": True,
+            "wait_selector": "table, .views-table, [class*='table'], grid",
+        },
         "noticias": [
             {
                 "nome": "TRT23 - Notícias",
